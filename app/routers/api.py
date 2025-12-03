@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1")
 
 
 @router.get("/solution", response_model=str, description="获取解决方案文件内容")
-def solution(code: str = Query(description="解决方案代码")) -> str:
+def solution(code: str = Query(description="解决方案代码", default="FA00006")) -> str:
     """
     获取解决方案文件内容
     
@@ -34,9 +34,9 @@ def solution(code: str = Query(description="解决方案代码")) -> str:
 
 @router.get("/exec", response_model=InferenceResponse, description="执行故障诊断")
 def exec(
-    work_order_id: str = Query(description="工单号, 如GZ2023092100001"),
-    rule_index: int = Query(description="在哪一步呈现故障"),
-    err_index: int = Query(description="错误索引"),
+    work_order_id: str = Query(description="工单号", default="CMCC-GD-GZCL-20250429-009158"),
+    rule_index: int = Query(description="在哪一步呈现故障", default=3, gt=0),
+    err_index: int = Query(description="错误索引", default=1, gt=0 ),
     db: Session = Depends(get_db),
 ) -> InferenceResponse:
     """
@@ -76,8 +76,8 @@ def exec(
 @router.get("/work-orders", response_model=PaginatedResponse, description="获取工单列表")
 def get_work_orders(
     # 接收 page 和 size，而不是原来的 limit
-    page: int = Query(1, ge=1, description="页码，从1开始"),
-    size: int = Query(settings.default_limit, ge=1, le=100, description="每页显示条数"),
+    page: int = Query(default=1, ge=1, description="页码，从1开始"),
+    size: int = Query(default= settings.default_limit, ge=1, le=100, description="每页显示条数"),
     keyword: str = Query(description="关键字，用于模糊匹配工单标题和描述"),
     db: Session = Depends(get_db),
 ):
