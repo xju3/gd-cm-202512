@@ -7,6 +7,9 @@ from typing import Optional, Any, Dict, Union
 import json
 
 class MmlContent(BaseModel):
+    """
+        MML 内容结构
+    """
     id: int
     val: str
     solution: str

@@ -6,7 +6,7 @@ def create_app() -> FastAPI:
     """工厂函数：创建并配置 App"""
     app = FastAPI(
         title=settings.app_title,
-        description="Word Order 查询服务 API 文档",
+        description="API 接口文档",
         version="1.0.0"
     )
     app.include_router(api.router)

@@ -10,7 +10,7 @@ project_root = current_file.parent.parent
 
 class Settings(BaseSettings):
     database_url: str
-    app_title: str = "Postgres 查询服务"
+    app_title: str = "广州移动智能故障诊断系统"
     default_limit: int = 10
     debug_mode: bool = False
 
@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
     
     # 过渡数据，用于构建其他列表
-    json_rules: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'rules.json', 'r', encoding='utf-8')) 
-    json_mml_num: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'mml_num.json', 'r', encoding='utf-8'))
-    json_mml_str: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'mml_str.json', 'r', encoding='utf-8'))
+    json_rules: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'rules' / 'rules.json', 'r', encoding='utf-8')) 
+    json_mml_num: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'data' / 'mml_num.json', 'r', encoding='utf-8'))
+    json_mml_str: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'data' /'mml_str.json', 'r', encoding='utf-8'))
     
     # 解析后的列表
     diagnosis_rule_list: List[DiagnosisRule] = [DiagnosisRule(**item) for item in json_rules]
