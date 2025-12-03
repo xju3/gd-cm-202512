@@ -82,9 +82,6 @@ def replace_rule_description(work_order: WorkOrder, description: str) -> str:
 
 def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = ""):
 
-
-
-
     count_stmt = (
         select(func.count())
         .select_from(WorkOrder)

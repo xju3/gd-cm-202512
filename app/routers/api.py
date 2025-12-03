@@ -1,3 +1,4 @@
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
 from typing import List
@@ -7,16 +8,51 @@ from ..database import get_db
 from ..services import data_service
 from ..schemas import PaginatedResponse, InferenceResponse
 from ..config import settings
+# 获取当前文件的绝对路径
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent
 
 router = APIRouter(prefix="/api/v1")
 
-@router.get("/exec", response_model=InferenceResponse)
+
+@router.get("/solution", response_model=str, description="获取解决方案文件内容")
+def solution(code: str = Query(description="解决方案代码")) -> str:
+    """
+    获取解决方案文件内容
+    
+    :param code: Description
+    :type code: str
+    :return: Description
+    :rtype: str
+    """
+    file_path = project_root / "files" / "solutions" / (code + ".md")
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="解决方案文件未找到")
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
+    return content
+
+@router.get("/exec", response_model=InferenceResponse, description="执行故障诊断")
 def exec(
     work_order_id: str = Query(description="工单号, 如GZ2023092100001"),
     rule_index: int = Query(description="在哪一步呈现故障"),
     err_index: int = Query(description="错误索引"),
     db: Session = Depends(get_db),
 ) -> InferenceResponse:
+    """
+    执行推理
+    
+    :param work_order_id: 工单号, 如GZ2023092100001
+    :type work_order_id: str
+    :param rule_index: 在哪一步呈现故障
+    :type rule_index: int
+    :param err_index: 错误索引
+    :type err_index: int
+    :param db: 数据库连接
+    :type db: Session
+    :return: 推理结果
+    :rtype: InferenceResponse
+    """
     try:
         inference_list = data_service.exec(
             work_order_id=work_order_id,
@@ -37,7 +73,7 @@ def exec(
         )
 
 
-@router.get("/work-orders", response_model=PaginatedResponse)
+@router.get("/work-orders", response_model=PaginatedResponse, description="获取工单列表")
 def get_work_orders(
     # 接收 page 和 size，而不是原来的 limit
     page: int = Query(1, ge=1, description="页码，从1开始"),
@@ -45,6 +81,20 @@ def get_work_orders(
     keyword: str = Query(description="关键字，用于模糊匹配工单标题和描述"),
     db: Session = Depends(get_db),
 ):
+    """
+    获取工单列表
+    
+    :param page: 页码，从1开始
+    :type page: int
+    :param size: 每页显示条数
+    :type size: int
+    :param keyword: 关键字，用于模糊匹配工单标题和描述
+    :type keyword: str
+    :param db: 数据库连接
+    :type db: Session
+    :return: 工单列表
+    :rtype: PaginatedResponse
+    """
     try:
         # 1. 计算数据库需要的 offset (跳过的条数)
         skip = (page - 1) * size
