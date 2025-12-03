@@ -10,7 +10,6 @@ from ..config import settings
 
 router = APIRouter(prefix="/api/v1")
 
-
 @router.get("/exec", response_model=InferenceResponse)
 def exec(
     work_order_id: str = Query(description="工单号, 如GZ2023092100001"),
@@ -28,6 +27,7 @@ def exec(
         return InferenceResponse(
             data=inference_list,
             success=True,
+            error="",
         )
     except Exception as e:
         return InferenceResponse(
@@ -35,7 +35,6 @@ def exec(
             success=False,
             error=str(e),
         )
-        raise HTTPException(status_code=500, detail=f"执行失败: {str(e)}")
 
 
 @router.get("/work-orders", response_model=PaginatedResponse)

@@ -4,7 +4,7 @@ from sqlalchemy import select, func  # 👈 别忘了导入 func
 from pathlib import Path
 from langchain.tools import tool
 from typing import List
-from ..services.mock_service import mock_numerical_data, mock_string_data
+from ..services.mock_service import mock_numerical_value, mock_string_value
 from ..models import WorkOrder
 from ..schemas import Inference, RuleContent
 from ..config import settings
@@ -26,7 +26,7 @@ def exec(
 
     return exec_tf002(item, rule_index, err_index)
 
-def exec_tf002(item: WorkOrder, rule_index, err_index: float) -> List[Inference]:
+def exec_tf002(work_order: WorkOrder, rule_index, err_index: float) -> List[Inference]:
     result : List[Inference] = []
     rule_contents : List[RuleContent] = []
     for item in settings.diagnosis_rule_list:
@@ -40,7 +40,7 @@ def exec_tf002(item: WorkOrder, rule_index, err_index: float) -> List[Inference]
         inference = Inference(
             descriptions="", conclusion="", solution="", error=""
         )
-        description = replace_rule_description(item, rule.descriptions)
+        description = replace_rule_description(work_order, rule.descriptions)
         status = 0
         if rule.id == rule_index:
             status = err_index
@@ -48,10 +48,10 @@ def exec_tf002(item: WorkOrder, rule_index, err_index: float) -> List[Inference]
         mock = rule.mock
         content = None
         if mock.type == "num":
-            content = mock_numerical_data(mock.name, status)
+            content = mock_numerical_value(mock.name, status)
         else:
-            content = mock_string_data(mock.name, status)
-        inference.conclusion = content.value
+            content = mock_string_value(mock.name, status)
+        inference.conclusion = content.val
         inference.solution = content.solution
         inference.descriptions = description
         result.append(inference)
@@ -63,17 +63,22 @@ def replace_rule_description(work_order: WorkOrder, description: str) -> str:
     - Replaces DT prefixed placeholders (e.g., {DT00001}) with corresponding work_order attributes.
     - Identifies JT prefixed placeholders for future use.
     """
-    # Find all placeholders like {DTxxxxx} or {JTxxxxx} where x is a digit, and the whole DT/JT code is 7 characters
-    pattern = r'\b(?:GJ|JT)\d{5}\b'
+    pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
     placeholders = re.findall(pattern, description)
 
     for placeholder in placeholders:
-        if placeholder.startswith("DT"):
+        if placeholder.startswith("GJ"):
             # The attribute name on WorkOrder is assumed to be the placeholder itself
             value = getattr(work_order, placeholder, f"{{{placeholder}}}")
-            description = description.replace(f"{{{placeholder}}}", str(value))    
-    return description
+            description = description.replace(placeholder, str(value))    
 
+    for placeholder in placeholders:
+        if placeholder.startswith("JT"):
+            # Future implementation for JT prefixed placeholders
+            value = fetch_static_data(placeholder, "")
+            description = description.replace(placeholder, str(value))
+
+    return description
 
 def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = ""):
 
@@ -101,7 +106,7 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
     return total, items
 
 
-@tool(description="Fetch static data based on item name and status")
+# @tool(description="Fetch static data based on item name and status")
 def fetch_static_data(item_name: str, param: str):
 
     # 机房编码
