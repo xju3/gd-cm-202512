@@ -48,14 +48,25 @@ def exec_tf002(work_order: WorkOrder, rule_index, err_index: float) -> List[Infe
         mock = rule.mock
         content = None
         if mock.type == "num":
-            content = mock_numerical_value(mock.name, status)
+            content = mock_numerical_value(mock.name, status, work_order)
         else:
-            content = mock_string_value(mock.name, status)
+            content = mock_string_value(mock.name, status, work_order)
         inference.conclusion = content.val
-        inference.solution = content.solution
+        inference.solution = get_solution(content.solution)
         inference.descriptions = description
         result.append(inference)
     return result
+
+def get_solution(code: str) -> str:
+    if not code.startswith("FA"):
+        return code
+    
+    file_path = project_root / "files" / "solutions" / (code + ".md")
+    if not file_path.exists():
+        return ""
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
+    return content
 
 def replace_rule_description(work_order: WorkOrder, description: str) -> str:
     """

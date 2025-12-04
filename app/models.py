@@ -4,6 +4,20 @@ from datetime import datetime
 from .database import Base
 
 
+class OpticalPower(Base):
+    """
+    对应数据库中的 optical_power 表
+    """
+    __tablename__ = "optical_power"
+
+    # optical_power_id 是主键
+    ne_name: Mapped[str] = mapped_column(String)
+    slot_id: Mapped[str] = mapped_column(String)
+    board_name: Mapped[str] = mapped_column(String)
+    port : Mapped[str] = mapped_column(String)
+    input_power : Mapped[str] = mapped_column(String)
+    output_power: Mapped[str] = mapped_column(String)
+    
     
     
 
