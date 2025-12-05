@@ -21,19 +21,33 @@ def exec(
     stmt = select(WorkOrder).where(WorkOrder.work_order_id == work_order_id)
     item = db.execute(stmt).scalar_one_or_none()
 
-    if item is None or "小区" not in item.GJ00008:
+    rule_name = None
+
+    if "小区" in item.GJ00008:
+        rule_name = "TF0002"
+        
+    if "基站" in item.GJ00008:
+        rule_name = "TF0001"
+    
+    return digonisis(item, rule_index, err_index, rule_name)
+
+
+def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) -> List[Inference]: 
+    
+    if rule_name is None:
         return []
-
-    return exec_tf002(item, rule_index, err_index)
-
-def exec_tf002(work_order: WorkOrder, rule_index, err_index: float) -> List[Inference]:
+    
     result : List[Inference] = []
     rule_contents : List[RuleContent] = []
     for item in settings.diagnosis_rule_list:
-        if item.name ==  "TF-002":
+        if item.name ==  rule:
             rule_contents = item.rules
             break 
-
+    
+    for rule in rule_contents:
+        if rule.id > rule_index:
+            break
+    
     for rule in rule_contents:
         if rule.id > rule_index:
             break
@@ -51,11 +65,12 @@ def exec_tf002(work_order: WorkOrder, rule_index, err_index: float) -> List[Infe
             content = mock_numerical_value(mock.name, status, work_order)
         else:
             content = mock_string_value(mock.name, status, work_order)
-        inference.conclusion = content.val
+        inference.conclusion = content.conclustion
         inference.solution = get_solution(content.solution)
         inference.descriptions = description
         result.append(inference)
     return result
+
 
 def get_solution(code: str) -> str:
     if not code.startswith("FA"):

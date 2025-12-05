@@ -4,28 +4,53 @@
         "contents": [
             {
                 "id": 1,
-                "val": "LICENSE资源不足",
+                "conclusion": "LICENSE资源不足",
                 "solution": "FA00008"
             },
             {
                 "id": 2,
-                "val": "频点配置错误",
+                "conclusion": "频点配置错误",
                 "solution": "FA00009"
             },
             {
                 "id": 3,
-                "val": "功率配置错误",
+                "conclusion": "功率配置错误",
                 "solution": "FA00010"
             },
             {
                 "id": 4,
-                "val": "基带单元能力不足",
+                "conclusion": "基带单元能力不足",
                 "solution": "FA00011"
             },
             {
                 "id": 5,
-                "val": "基带板件故障",
+                "conclusion": "基带板件故障",
                 "solution": "FA00012"
+            }
+        ]
+    },
+    {
+        "key": "DT00008",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "PTN/SPN至BBU端故障（PTN/SPN板件、端口；机房内尾纤；传输光缆；BBU端主控板、光模块）",
+                "solution": "FA00017"
+            },
+            {
+                "id": 2,
+                "conclusion": "光模块、尾纤、传输故障",
+                "solution": "FA00007"
+            },
+            {
+                "id": 3,
+                "conclusion": "时钟盒/GPS故障",
+                "solution": "FA00014"
+            },
+            {
+                "id": 4,
+                "conclusion": "BBU侧设备故障",
+                "solution": "FA00015"
             }
         ]
     },
@@ -34,13 +59,48 @@
         "contents": [
             {
                 "id": 1,
-                "val": "市电电力故障",
+                "conclusion": "市电电力故障",
                 "solution": "FA00005"
             },
             {
                 "id": 2,
-                "val": "整流模块故障",
+                "conclusion": "整流模块故障",
                 "solution": "FA00006"
+            }
+        ]
+    },
+    {
+        "key": "DT00018",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "传输光缆故障-PTN",
+                "solution": "FA00013"
+            },
+            {
+                "id": 2,
+                "conclusion": "传输光缆故障-SPN",
+                "solution": "FA00013"
+            }
+        ]
+    },
+    {
+        "key": "DT00082",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "传输光缆故障",
+                "solution": "FA00013"
+            }
+        ]
+    },
+        {
+        "key": "DT00083",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "传输光缆故障",
+                "solution": "FA00013"
             }
         ]
     }
