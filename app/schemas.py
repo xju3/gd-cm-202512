@@ -11,7 +11,7 @@ class MmlContent(BaseModel):
         MML 内容结构
     """
     id: int
-    conclustion: str
+    conclusion: str
     solution: str
 
 class MmlNumSetting(BaseModel):

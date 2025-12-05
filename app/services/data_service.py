@@ -24,10 +24,10 @@ def exec(
     rule_name = None
 
     if "小区" in item.GJ00008:
-        rule_name = "TF0002"
+        rule_name = "TF-002"
         
     if "基站" in item.GJ00008:
-        rule_name = "TF0001"
+        rule_name = "TF-001"
     
     return digonisis(item, rule_index, err_index, rule_name)
 
@@ -40,7 +40,7 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
     result : List[Inference] = []
     rule_contents : List[RuleContent] = []
     for item in settings.diagnosis_rule_list:
-        if item.name ==  rule:
+        if item.name ==  rule_name:
             rule_contents = item.rules
             break 
     
@@ -65,7 +65,7 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
             content = mock_numerical_value(mock.name, status, work_order)
         else:
             content = mock_string_value(mock.name, status, work_order)
-        inference.conclusion = content.conclustion
+        inference.conclusion = content.conclusion
         inference.solution = get_solution(content.solution)
         inference.descriptions = description
         result.append(inference)
@@ -114,16 +114,16 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
         .where(WorkOrder.GJ00008.contains("退服"))
     )
 
-    if keyword != "":
-        count_stmt = count_stmt.where(WorkOrder.GJ00008.contains(keyword))
+    if keyword is not None:
+        count_stmt = count_stmt.where(WorkOrder.work_order_id.contains(keyword))
 
     total = db.execute(count_stmt).scalar()
     if total is None:
         total = 0
 
     stmt = select(WorkOrder).where(WorkOrder.GJ00008.contains("退服"))
-    if keyword != "":
-        stmt = stmt.where(WorkOrder.GJ00008.contains(keyword))
+    if keyword is not None:
+        stmt = stmt.where(WorkOrder.work_order_id.contains(keyword))
     stmt = stmt.offset(skip).limit(limit)
     items = db.execute(stmt).scalars().all()
     return total, items

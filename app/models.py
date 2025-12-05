@@ -11,6 +11,7 @@ class OpticalPower(Base):
     __tablename__ = "optical_power"
 
     # optical_power_id 是主键
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ne_name: Mapped[str] = mapped_column(String)
     slot_id: Mapped[str] = mapped_column(String)
     board_name: Mapped[str] = mapped_column(String)

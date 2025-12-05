@@ -78,7 +78,7 @@ def get_work_orders(
     # 接收 page 和 size，而不是原来的 limit
     page: int = Query(default=1, ge=1, description="页码，从1开始"),
     size: int = Query(default= settings.default_limit, ge=1, le=100, description="每页显示条数"),
-    keyword: str = Query(description="关键字，用于模糊匹配工单标题和描述"),
+    keyword: str = Query(default= None, description="关键字，用于模糊匹配工单标题和描述"),
     db: Session = Depends(get_db),
 ):
     """

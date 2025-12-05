@@ -39,9 +39,9 @@ def mock_string_value(item_name: str, status: int, work_order : WorkOrder) -> Mm
     """
     try:
         if status == 0:
-            return MmlContent(id=1, conclustion="正常", solution="无需处理")
+            return MmlContent(id=1, conclusion="正常", solution="无需处理")
     except Exception as e:
-        return MmlContent(id=1, conclustion="", solution="模拟数据异常：" + str(e))
+        return MmlContent(id=1, conclusion="", solution="模拟数据异常：" + str(e))
 
     item = next(
         setting for setting in settings.mml_str_list if setting.key == item_name
@@ -66,7 +66,7 @@ def _get_optical_power(work_order: WorkOrder, status : float) -> MmlContent:
     """
 
     if status == -1:
-        return MmlContent(id=1, conclustion="", solution="")
+        return MmlContent(id=1, conclusion="", solution="")
     db = get_db()
     stmt = select(OpticalPower).where(OpticalPower.ne_name == work_order.ne_name)
     result = db.execute(stmt).scalar()
@@ -78,7 +78,7 @@ def _get_optical_power(work_order: WorkOrder, status : float) -> MmlContent:
         if status == 0:
             solution = "FA00007"
             value = "RRU端故障"
-        return MmlContent(id=1, conclustion=value, solution=solution)
+        return MmlContent(id=1, conclusion=value, solution=solution)
     
     hit = False
     input_theshold = -1400
@@ -112,9 +112,9 @@ def _get_optical_power(work_order: WorkOrder, status : float) -> MmlContent:
         solution = "FA00001"
         value = "光模块、尾纤、传输故障"
         value += "(" + ",".join(messages) + ")"
-        return MmlContent(id=1, conclustion=value, solution=solution)
+        return MmlContent(id=1, conclusion=value, solution=solution)
     else:
         solution = "FA00007"
         value = "RRU端故障"
-        return MmlContent(id=1, conclustion=value, solution=solution)
+        return MmlContent(id=1, conclusion=value, solution=solution)
         
