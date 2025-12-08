@@ -12,7 +12,7 @@ from ..config import settings
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
-
+pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
 
 def exec(
     work_order_id: str, rule_index, err_index: float, db: Session
@@ -44,17 +44,20 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
             rule_contents = item.rules
             break 
     
-    for rule in rule_contents:
-        if rule.id > rule_index:
-            break
+
+    if rule_index < 1:
+        rule_index = 1
+
+    if rule_index > len(rule_contents):
+        rule_index = len(rule_contents)
     
     for rule in rule_contents:
         if rule.id > rule_index:
             break
         inference = Inference(
-            descriptions="", conclusion="", solution="", error=""
+            descriptions="", conclusion="", solution="", error="", curr_rules=[]
         )
-        description = replace_rule_description(work_order, rule.descriptions)
+    
         status = 0
         if rule.id == rule_index:
             status = err_index
@@ -65,9 +68,11 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
             content = mock_numerical_value(mock.name, status, work_order)
         else:
             content = mock_string_value(mock.name, status, work_order)
+
         inference.conclusion = content.conclusion
         inference.solution = get_solution(content.solution)
-        inference.descriptions = description
+        inference.descriptions = replace_text_codes(work_order, rule.descriptions) 
+        inference.curr_rules = replace_rules(work_order, rule.curr_rules)
         result.append(inference)
     return result
 
@@ -83,28 +88,34 @@ def get_solution(code: str) -> str:
         content = file.read()
     return content
 
-def replace_rule_description(work_order: WorkOrder, description: str) -> str:
+def replace_rules(work_order: WorkOrder, rules : List[str]) -> List[str]:
+    replaced_rules = []
+    for rule in rules:
+        replaced_text = replace_text_codes(work_order, rule)
+        replaced_rules.append(replaced_text)
+    return replaced_rules
+
+def replace_text_codes(work_order: WorkOrder, text: str) -> str:
     """
     Replace placeholders in the description with values from the work order.
     - Replaces DT prefixed placeholders (e.g., {DT00001}) with corresponding work_order attributes.
     - Identifies JT prefixed placeholders for future use.
     """
-    pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
-    placeholders = re.findall(pattern, description)
+
+    placeholders = re.findall(pattern, text)
 
     for placeholder in placeholders:
         if placeholder.startswith("GJ"):
-            # The attribute name on WorkOrder is assumed to be the placeholder itself
             value = getattr(work_order, placeholder, f"{{{placeholder}}}")
-            description = description.replace(placeholder, str(value))    
+            text = text.replace(placeholder, str(value))    
 
     for placeholder in placeholders:
         if placeholder.startswith("JT"):
             # Future implementation for JT prefixed placeholders
             value = fetch_static_data(placeholder, "")
-            description = description.replace(placeholder, str(value))
+            text = text.replace(placeholder, str(value))
 
-    return description
+    return text
 
 def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = ""):
 

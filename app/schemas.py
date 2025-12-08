@@ -35,6 +35,7 @@ class MmlStrSetting(BaseModel):
 class RuleContent(BaseModel):
     id: int
     name: str
+    curr_rules: List[str]
     descriptions: str
     mock: MockData
 
@@ -66,6 +67,10 @@ class Inference(BaseModel):
     conclusion: str = Field(
         ..., 
         description="故障名称", 
+    )
+    curr_rules: List[str] = Field(
+        ..., 
+        description="推理规则", 
     )
     solution: str = Field(
         ..., 
