@@ -32,8 +32,8 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
         content = file.read()
     return content
 
-@router.get("/exec", response_model=InferenceResponse, description="执行故障诊断")
-def exec(
+@router.get("/diagnosis", response_model=InferenceResponse, description="执行故障诊断")
+def diagnosis(
     work_order_id: str = Query(description="工单号", default="CMCC-GD-GZCL-20250429-009158"),
     rule_index: int = Query(description="在哪一步呈现故障", default=3, gt=0),
     err_index: int = Query(description="错误索引", default=1, gt=0 ),

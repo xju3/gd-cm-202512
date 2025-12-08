@@ -20,3 +20,17 @@ dependencies = [
 members = [
     "api",
 ]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "--alluredir=./allure-results --clean-alluredir"
+testpaths = [
+    "test",
+]
+python_files = "test_*.py"
+
+[dependency-groups]
+dev = [
+    "allure-pytest>=2.15.2",
+    "pytest>=9.0.1",
+]
