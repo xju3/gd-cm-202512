@@ -55,7 +55,7 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
         if rule.id > rule_index:
             break
         inference = Inference(
-            descriptions="", conclusion="", solution="", error="", curr_rules=[]
+            descriptions="", conclusion="", solution_code="", solution_content="", error="", curr_rules=[], name= ""
         )
     
         status = 0
@@ -70,7 +70,9 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
             content = mock_string_value(mock.name, status, work_order)
 
         inference.conclusion = content.conclusion
-        inference.solution = get_solution(content.solution)
+        inference.name = mock.name
+        inference.solution_code = content.solution
+        inference.solution_content = get_solution(content.solution)
         inference.descriptions = replace_text_codes(work_order, rule.descriptions) 
         inference.curr_rules = replace_rules(work_order, rule.curr_rules)
         result.append(inference)

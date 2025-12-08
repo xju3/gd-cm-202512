@@ -51,6 +51,31 @@
                 "id": 4,
                 "conclusion": "BBU侧设备故障",
                 "solution": "FA00015"
+            },
+            {
+                "id": 5,
+                "conclusion": "RRU端故障",
+                "solution": "FA00001"
+            }
+        ]
+    },
+    {
+        "key": "DL-001",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "市电电力故障",
+                "solution": "FA00005"
+            }
+        ]
+    },
+    {
+        "key": "DL-002",
+        "contents": [
+            {
+                "id": 1,
+                "conclusion": "整流模块故障",
+                "solution": "FA00006"
             }
         ]
     },

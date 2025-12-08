@@ -39,7 +39,7 @@ def mock_string_value(item_name: str, status: int, work_order : WorkOrder) -> Mm
     """
     try:
         if status == 0:
-            return MmlContent(id=1, conclusion="正常", solution="无需处理")
+            return MmlContent(id=1, conclusion="", solution="")
     except Exception as e:
         return MmlContent(id=1, conclusion="", solution="模拟数据异常：" + str(e))
 

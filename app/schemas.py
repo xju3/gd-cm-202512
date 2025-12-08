@@ -60,6 +60,10 @@ class InferenceResponse(BaseModel):
 
 class Inference(BaseModel):
     """推理结果数据"""
+    name: str = Field(
+        ..., 
+        description="动态数据编号", 
+    )
     descriptions: str = Field(
         ..., 
         description="问题描述", 
@@ -72,9 +76,13 @@ class Inference(BaseModel):
         ..., 
         description="推理规则", 
     )
-    solution: str = Field(
+    solution_content: str = Field(
         ..., 
-        description="解决方案", 
+        description="方案内容", 
+    )
+    solution_code: str = Field(
+        ..., 
+        description="方案编号", 
     ),
 
     
