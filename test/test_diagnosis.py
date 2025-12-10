@@ -34,6 +34,7 @@ class WorkOrderDianosisTestService:
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 7, 2, "光模块、尾纤、传输故障", "FA00007"))      
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 8, 3, "时钟盒/GPS故障", "FA00014"))      
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 9, 4, "BBU侧设备故障", "FA00015"))      
+        self._exec(params)
 
     def tf002_givenAllRules_whenRunDiagnosisForEach_thenEachResultsSatisfiedCorrespondingExpectations(self):
         work_order_id = 'CMCC-GD-GZCL-20250429-009158' # 小区退服
@@ -51,16 +52,17 @@ class WorkOrderDianosisTestService:
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 4, 5, "基带板件故障", "FA00012"))      
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 5, 2, "光模块、尾纤、传输故障", "FA00007"))      
         params.append(WorkOrderDianosisParamAndExpections(work_order_id, 5, 5, "RRU端故障", "FA00001"))      
+        self._exec(params)
     
 
-    def _exec(params: List[WorkOrderDianosisParamAndExpections]):
+    def _exec(self, params: List[WorkOrderDianosisParamAndExpections]):
         # 获取数据库会话
         db_gen = get_db()
         db = next(db_gen)
         
         for param in params:
             results= exec(db, param.work_order_id, param.rule_id, param.error_index)
-            assert len(results) > 0
+            assert len(results) == param.rule_id 
             item = results[param.rule_id - 1]
             assert item.conclusion == param.conclustion
             assert item.solution_code == param.solution_code
