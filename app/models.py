@@ -83,6 +83,9 @@ class WorkOrder(Base):
     # 网元名称
     ne_name : Mapped[str] = mapped_column(String)
 
+    # 警告等级
+    warning_level: Mapped[str] = mapped_column(String)
+
     # 网管告警ID
     nms_alarm_id : Mapped[str] = mapped_column(String)
     # 详情
