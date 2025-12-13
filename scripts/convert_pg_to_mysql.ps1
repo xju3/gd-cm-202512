@@ -58,8 +58,64 @@ function Convert-PgSqlToMySql {
     $content = $regex.Replace($content, { param($m)
         $tbl = $m.Groups[1].Value
         $cols = $m.Groups[2].Value
+
+        # 列类型降级以避免 MySQL #1118 错误
+        # 规则：
+        # 1) 针对常见大文本字段（details/remarks/descriptions/associated_cell_list）强制替换为 TEXT
+        # 2) 针对主键/编码/名称/经纬度/时间类字段，缩短为较小 VARCHAR 以便索引
+        # 3) 其余残留的 varchar(256) 统一替换为 TEXT（保守策略，避免超宽行）
+        $col_defs = $cols
+
+        # 针对特定列名替换为 TEXT
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`details`|`remarks`|`descriptions`|`associated_cell_list`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 TEXT',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+
+        # 针对ID/编码/名称/经纬度/时间类字段，缩短为小 VARCHAR
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`(?:work_order_id|nms_alarm_id|asset_tag_number|antenna_serial_number|id)`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 VARCHAR(128)',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`(?:[^`]*_code|code)`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 VARCHAR(64)',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`(?:[^`]*_name|name)`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 VARCHAR(128)',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`(?:longitude|latitude)`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 VARCHAR(64)',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            '(`[^`]*time[^`]*`)\s+varchar\s*\(\s*256\s*\)',
+            '$1 VARCHAR(64)',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+
+        # 其余残留统一替换为 TEXT（保守策略）
+        $col_defs = [System.Text.RegularExpressions.Regex]::Replace(
+            $col_defs,
+            'varchar\s*\(\s*256\s*\)',
+            'TEXT',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+
         $bt = [char]96
-        "CREATE TABLE $bt$tbl$bt ($cols) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
+        "CREATE TABLE $bt$tbl$bt ($col_defs) ENGINE=InnoDB ROW_FORMAT=DYNAMIC DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;"
     })
 
     # 写出结果

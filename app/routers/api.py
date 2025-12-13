@@ -1,12 +1,14 @@
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 from typing import List
 import math
 
 from ..database import get_db
 from ..services import data_service
-from ..schemas import PaginatedResponse, InferenceResponse
+from ..schemas import PaginatedResponse, InferenceResponse, WorkOrderDTO
+from ..models import WorkOrder
 from ..config import settings
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
@@ -14,6 +16,15 @@ project_root = current_file.parent.parent
 
 router = APIRouter(prefix="/api/v1")
 
+@router.get("/health", response_model=dict, description="检查服务健康状态")
+def health() -> dict:
+    """
+    检查服务健康状态
+    
+    :return: 健康状态
+    :rtype: dict
+    """
+    return {"status": "healthy"}
 
 @router.get("/solution", response_model=str, description="获取解决方案文件内容")
 def solution(code: str = Query(description="解决方案代码", default="FA00006")) -> str:
@@ -119,3 +130,27 @@ def get_work_orders(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"查询失败: {str(e)}")
+
+
+@router.get("/work-order/{work_id}", response_model=WorkOrderDTO, description="获取指定工单详情")
+def get_work_order(
+    work_id: str,
+    db: Session = Depends(get_db),
+) -> WorkOrderDTO:
+    """
+    获取指定工单详情
+    
+    :param work_id: 工单号
+    :type work_id: str
+    :param db: 数据库连接
+    :type db: Session
+    :return: 单条工单数据
+    :rtype: WorkOrderDTO
+    """
+    stmt = select(WorkOrder).where(WorkOrder.work_order_id == work_id)
+    item = db.execute(stmt).scalar_one_or_none()
+    if item is None:
+        raise HTTPException(status_code=404, detail="未找到该工单")
+
+    # 4. 返回符合 PaginatedResponse 结构的数据
+    return item
