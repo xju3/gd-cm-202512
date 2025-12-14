@@ -37,10 +37,11 @@ def exec(
     if item.rule_index is None or item.err_index is None:
         # 调用 AI 推理
         result = ai_diagnosis(item)
-        item.rule_index = result.get("rule_index", 1)
-        item.err_index = str(result.get("error_index", 1))
-        item.probability = str(result.get("probability", 0.0))
-        item.evidence = result.get("evidence", "")
+        norm = normalize_inference_result(result)
+        item.rule_index = norm["rule_index"]
+        item.err_index = norm["error_index"]
+        item.probability = norm["probability"]
+        item.evidence = norm["evidence"]
         db.commit()
 
     rule_name = None
@@ -56,6 +57,56 @@ def exec(
         err_index_float = 1.0
     rule_index_int = item.rule_index if item.rule_index else 1
     return digonisis(item, rule_index_int, err_index_float, rule_name)
+
+def get_deepseek_api_key() -> str | None:
+    """
+    获取 DeepSeek API Key，兼容环境变量 `DEEPSEEK_API_KEY` 与 `DEEPSEEK_API_KEY_CUI`。
+    """
+    return os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY_CUI")
+
+def normalize_inference_result(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    规范化 AI 推理结果为数据库可写的类型：
+    - rule_index: int，缺省为 1
+    - error_index: int，缺省为 1
+    - probability: int，支持将小数或百分比字符串转换为 0~100 的整数
+    - evidence: str，缺省为空字符串
+    """
+    def to_int(value: Any, default: int = 0) -> int:
+        try:
+            if isinstance(value, bool):
+                return int(value)
+            if isinstance(value, (int,)):
+                return int(value)
+            if isinstance(value, (float,)):
+                return int(round(value))
+            if isinstance(value, str):
+                v = value.strip()
+                if v.endswith("%"):
+                    v = v[:-1]
+                return int(round(float(v)))
+            return default
+        except Exception:
+            return default
+
+    rule_index = to_int(result.get("rule_index", 1), 1)
+    error_index = to_int(result.get("error_index", 1), 1)
+    probability_raw = result.get("probability", 0)
+    probability = to_int(probability_raw, 0)
+    if probability < 0:
+        probability = 0
+    if probability > 100:
+        probability = 100
+    evidence = result.get("evidence", "") or ""
+    if not isinstance(evidence, str):
+        evidence = str(evidence)
+
+    return {
+        "rule_index": rule_index,
+        "error_index": error_index,
+        "probability": probability,
+        "evidence": evidence,
+    }
 
 def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
     """
@@ -108,7 +159,7 @@ mml_str_json:
     # 调用 DeepSeek
     llm = ChatDeepSeek(
         model="deepseek-chat",
-        api_key=os.environ.get("DEEPSEEK_API_KEY"),
+        api_key=settings.get_deepseek_api_key(),
         temperature=0,
         max_tokens=None,
         timeout=None,
@@ -133,7 +184,7 @@ mml_str_json:
         result = {
             "rule_index": 1,
             "error_index": 1,
-            "probability": 0.0,
+            "probability": 0,
             "evidence": "解析失败: " + str(e)
         }
     
@@ -154,11 +205,12 @@ def pre_diagnosis(db: Session, batch_size: int = 100):
                 continue
             # 调用 AI 推理
             result = ai_diagnosis(work_order)
-            # 更新工单字段
-            work_order.rule_index = result.get("rule_index", 1)
-            work_order.err_index = str(result.get("error_index", 1))  # 注意 err_index 是字符串类型
-            work_order.probability = str(result.get("probability", 0.0))
-            work_order.evidence = result.get("evidence", "")
+            # 更新工单字段（归一化，确保整数类型）
+            norm = normalize_inference_result(result)
+            work_order.rule_index = norm["rule_index"]
+            work_order.err_index = norm["error_index"]
+            work_order.probability = norm["probability"]
+            work_order.evidence = norm["evidence"]
         db.commit()
         skip += batch_size
         if skip >= total:

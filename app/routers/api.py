@@ -43,7 +43,7 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
         content = file.read()
     return content
 
-@router.get("/diagnosis", response_model=InferenceResponse, description="执行故障诊断")
+@router.api_route("/diagnosis", methods=["GET", "POST"], response_model=InferenceResponse, description="执行故障诊断")
 def diagnosis(
     work_order_id: str = Query(description="工单号", default="CMCC-GD-GZCL-20250429-009158"),
     db: Session = Depends(get_db),
@@ -147,7 +147,7 @@ def get_work_order(
     # 4. 返回符合 PaginatedResponse 结构的数据
     return item
 
-@router.post("/pre-diagnosis", response_model=dict, description="批量预诊断工单")
+@router.api_route("/pre-diagnosis", methods=["GET", "POST"], response_model=dict, description="批量预诊断工单")
 def trigger_pre_diagnosis(
     batch_size: int = Query(default=100, ge=1, le=1000, description="每批处理数量"),
     db: Session = Depends(get_db),

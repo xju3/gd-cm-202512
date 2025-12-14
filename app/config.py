@@ -3,6 +3,7 @@ from pathlib import Path
 from .schemas import DiagnosisRule, MmlStrSetting, MmlNumSetting
 from typing import List, Dict, Any
 import json
+import os
 
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
@@ -16,9 +17,11 @@ class Settings(BaseSettings):
     app_title: str = "广州移动智能故障诊断系统"
     default_limit: int = 10
     debug_mode: bool = False
+    deepseek_api_key: str | None = None
+    deepseek_api_key_cui: str | None = None
 
     # 读取根目录下的 .env
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
     
     # 过渡数据，用于构建其他列表
     json_rules: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'rules' / 'rules.json', 'r', encoding='utf-8')) 
@@ -47,5 +50,17 @@ class Settings(BaseSettings):
         if self.database_url:
             return self.database_url
         raise ValueError("未找到有效的数据库配置，请检查 .env 中的数据库连接串设置")
+
+    def get_deepseek_api_key(self) -> str | None:
+        """
+        获取 DeepSeek API Key，兼容 `deepseek_api_key` 与 `deepseek_api_key_cui` 字段。
+        若字段为空，则回退读取环境变量。
+        """
+        return (
+            self.deepseek_api_key
+            or self.deepseek_api_key_cui
+            or os.environ.get("DEEPSEEK_API_KEY")
+            or os.environ.get("DEEPSEEK_API_KEY_CUI")
+        )
 
 settings = Settings()

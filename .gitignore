@@ -9,6 +9,7 @@ wheels/
 # Virtual environments
 .venv
 allure-results
+.env
 
 # vs code
 .vscode/
