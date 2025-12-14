@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -7,6 +8,11 @@ from langchain_deepseek import ChatDeepSeek
 from langchain_core.messages import HumanMessage
 
 from ..models import WorkOrder
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent
+
+path_rule_json =  project_root / "files" / "rules" / "rules.json"
+path_mock_json =  project_root / "files" / "data" / "mml_str.json"
 
 
 GEMINI_2_5_PRO = "gemini-2.5-pro"
@@ -25,7 +31,7 @@ def get_agent(tools: list):
 
     llm = ChatDeepSeek(
         model="deepseek-chat",
-        api_key=os.environ.get("DEEPSEEK_API_KEY"),
+        api_key=os.environ.get("DEEPSEEK_API_KEY_CUI"),
         temperature=0,
         max_tokens=None,
         timeout=None,

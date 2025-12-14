@@ -46,19 +46,13 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
 @router.get("/diagnosis", response_model=InferenceResponse, description="执行故障诊断")
 def diagnosis(
     work_order_id: str = Query(description="工单号", default="CMCC-GD-GZCL-20250429-009158"),
-    rule_index: int = Query(description="在哪一步呈现故障", default=3, gt=0),
-    err_index: int = Query(description="错误索引", default=1, gt=0 ),
     db: Session = Depends(get_db),
 ) -> InferenceResponse:
     """
-    执行推理
+    执行推理，使用 AI 自动判断故障规则和错误索引。
     
     :param work_order_id: 工单号, 如GZ2023092100001
     :type work_order_id: str
-    :param rule_index: 在哪一步呈现故障
-    :type rule_index: int
-    :param err_index: 错误索引
-    :type err_index: int
     :param db: 数据库连接
     :type db: Session
     :return: 推理结果
@@ -67,8 +61,6 @@ def diagnosis(
     try:
         inference_list = data_service.exec(
             work_order_id=work_order_id,
-            err_index=err_index,
-            rule_index=rule_index,
             db=db,
         )
         return InferenceResponse(
@@ -154,3 +146,24 @@ def get_work_order(
 
     # 4. 返回符合 PaginatedResponse 结构的数据
     return item
+
+@router.post("/pre-diagnosis", response_model=dict, description="批量预诊断工单")
+def trigger_pre_diagnosis(
+    batch_size: int = Query(default=100, ge=1, le=1000, description="每批处理数量"),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    触发批量预诊断，使用 AI 推理工单并更新数据库。
+    
+    :param batch_size: 每批处理数量
+    :type batch_size: int
+    :param db: 数据库连接
+    :type db: Session
+    :return: 处理结果
+    :rtype: dict
+    """
+    try:
+        data_service.pre_diagnosis(db, batch_size=batch_size)
+        return {"success": True, "message": "预诊断完成"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"预诊断失败: {str(e)}")

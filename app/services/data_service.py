@@ -1,36 +1,168 @@
 import re
+import json
+import os
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func  # 👈 别忘了导入 func
 from pathlib import Path
 from langchain.tools import tool
-from typing import List
+from typing import List, Dict, Any
+from langchain_deepseek import ChatDeepSeek
+from langchain_core.messages import HumanMessage
 from ..services.mock_service import mock_numerical_value, mock_string_value
 from ..models import WorkOrder
 from ..schemas import Inference, RuleContent
 from ..config import settings
+from ..llm.agent import inference
 
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
 pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
 
-def exec(
-    work_order_id: str, rule_index, err_index: float, db: Session
-) -> List[Inference]:
+path_rule_json = project_root / "files" / "rules" / "rules.json"
+path_mock_json = project_root / "files" / "data" / "mml_str.json"
 
+def exec(
+    work_order_id: str, db: Session
+) -> List[Inference]:
+    """
+    执行故障诊断，使用 AI 自动判断 rule_index 和 err_index。
+    """
     stmt = select(WorkOrder).where(WorkOrder.work_order_id == work_order_id)
     item = db.execute(stmt).scalar_one_or_none()
+    if item is None:
+        return []
+
+    # 如果工单中已有推理结果，直接使用
+    if item.rule_index is None or item.err_index is None:
+        # 调用 AI 推理
+        result = ai_diagnosis(item)
+        item.rule_index = result.get("rule_index", 1)
+        item.err_index = str(result.get("error_index", 1))
+        item.probability = str(result.get("probability", 0.0))
+        item.evidence = result.get("evidence", "")
+        db.commit()
 
     rule_name = None
-
     if "小区" in item.GJ00008:
         rule_name = "TF-002"
-        
     if "基站" in item.GJ00008:
         rule_name = "TF-001"
     
-    return digonisis(item, rule_index, err_index, rule_name)
+    # 调用 digonisis，传入工单中的 rule_index 和 err_index
+    try:
+        err_index_float = float(item.err_index) if item.err_index else 1.0
+    except (ValueError, TypeError):
+        err_index_float = 1.0
+    rule_index_int = item.rule_index if item.rule_index else 1
+    return digonisis(item, rule_index_int, err_index_float, rule_name)
 
+def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
+    """
+    使用 AI 推理工单，返回 rule_index, error_index, probability, evidence。
+    """
+    # 加载规则和 mock 数据
+    with open(path_rule_json, 'r', encoding='utf-8') as f:
+        rule_json = json.load(f)
+    with open(path_mock_json, 'r', encoding='utf-8') as f:
+        mock_json = json.load(f)
+    
+    # 构建工单 JSON
+    work_order_dict = {
+        "work_order_id": work_order.work_order_id,
+        "GJ00008": work_order.GJ00008,
+        "GJ00010": work_order.GJ00010,
+        "GJ00011": work_order.GJ00011,
+        "GJ00014": work_order.GJ00014,
+        "GJ00017": work_order.GJ00017,
+        "GJ00021": work_order.GJ00021,
+        "created_time": work_order.created_time,
+        "order_subject": work_order.order_subject,
+        "order_status": work_order.order_status,
+        "process_region": work_order.process_region,
+        "warning_level": work_order.warning_level,
+        "network_level_1": work_order.network_level_1,
+        "network_level_3": work_order.network_level_3,
+        "source_name": work_order.source_name,
+        "city_name_1": work_order.city_name_1,
+        "city_name_2": work_order.city_name_2,
+        "ne_name": work_order.ne_name,
+        "nms_alarm_id": work_order.nms_alarm_id,
+        "details": work_order.details,
+    }
+    
+    # 构建提示词（根据用户描述）
+    prompt = f"""
+你是通讯行业4G,5G设备故障分析专家, 深刻了解此行业的设备所生的故障与原因, 请分析work_order.json的内容, 在规则列表(rules_json)中找到的最有可能发生的故障节点, 再根据例命中的节点, 找到对应的mock数据, 根据mock.name在mock数据(mml_str_json)中找到与工单(work_order.json)所对应有的内容编号, 注意,如果工单(work_order.json)的GJ00008=小区退服, 在rule_json中的name=TF-002中进行匹配, 如果工单(work_order.json)的GJ00008=基站退服, 在rule_json中的name=TF-001中进行匹配, 返回 {{"rule_index": number, error_index: number, probability: percentage, evidence: ""}},  rule_index取相应rule的Id, error_index取相应内容的Id, probability是你推理结果的可能性, evidence是的推理出结果所使用的依据, 如果不能推导出结果, 或Probabiliy低于50%, 则在定义的规则范围内随机取一个规则后, 再根据mock.name在Mock数据中随机取一个值,在随机状态与Probabiliy还是要提供给我们, evidence可以不提供
+
+work_order.json:
+{json.dumps(work_order_dict, ensure_ascii=False, indent=2)}
+
+rules_json:
+{json.dumps(rule_json, ensure_ascii=False, indent=2)}
+
+mml_str_json:
+{json.dumps(mock_json, ensure_ascii=False, indent=2)}
+"""
+    
+    # 调用 DeepSeek
+    llm = ChatDeepSeek(
+        model="deepseek-chat",
+        api_key=os.environ.get("DEEPSEEK_API_KEY"),
+        temperature=0,
+        max_tokens=None,
+        timeout=None,
+        max_retries=2,
+    )
+    
+    response = llm.invoke([HumanMessage(content=prompt)])
+    content = response.content.strip()
+    
+    # 尝试解析 JSON
+    try:
+        # 提取 JSON 部分
+        start = content.find('{')
+        end = content.rfind('}') + 1
+        if start >= 0 and end > start:
+            json_str = content[start:end]
+            result = json.loads(json_str)
+        else:
+            raise ValueError("未找到 JSON 对象")
+    except Exception as e:
+        # 如果解析失败，返回默认值
+        result = {
+            "rule_index": 1,
+            "error_index": 1,
+            "probability": 0.0,
+            "evidence": "解析失败: " + str(e)
+        }
+    
+    return result
+
+def pre_diagnosis(db: Session, batch_size: int = 100):
+    """
+    批量处理工单，使用 AI 推理并更新数据库。
+    """
+    skip = 0
+    while True:
+        total, items = get_work_orders(db, skip=skip, limit=batch_size, keyword="")
+        if not items:
+            break
+        for work_order in items:
+            # 如果工单已有推理结果，可以跳过
+            if work_order.rule_index is not None and work_order.err_index is not None:
+                continue
+            # 调用 AI 推理
+            result = ai_diagnosis(work_order)
+            # 更新工单字段
+            work_order.rule_index = result.get("rule_index", 1)
+            work_order.err_index = str(result.get("error_index", 1))  # 注意 err_index 是字符串类型
+            work_order.probability = str(result.get("probability", 0.0))
+            work_order.evidence = result.get("evidence", "")
+        db.commit()
+        skip += batch_size
+        if skip >= total:
+            break
 
 def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) -> List[Inference]: 
     
@@ -142,9 +274,11 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
     return total, items
 
 
-# @tool(description="Fetch static data based on item name and status")
+@tool(description="Fetch static data based on item name and status")
 def fetch_static_data(item_name: str, param: str):
-
+    """
+    Fetch static data based on item name.
+    """
     # 机房编码
     if item_name == "JT00012":
         return {"room_id": "002017032644148100001082", "room_name": "南头机房"}
@@ -152,3 +286,22 @@ def fetch_static_data(item_name: str, param: str):
     # 站点编码
     if item_name == "JT00013":
         return {"station_id": "440106040010002750", "station_name": "南头站"}
+    return {}
+
+@tool(description="Mock numerical data based on item name and status")
+def numeric_mock(item_name: str, status: float):
+    """
+    Mock numerical data. This is a placeholder tool for AI inference.
+    """
+    # This tool is used by AI to request mock data, but we don't need to implement it
+    # because we will handle mock data separately.
+    return {"value": 0, "conclusion": "", "solution": ""}
+
+@tool(description="Mock string data based on item name and status")
+def string_mock(item_name: str, status: int):
+    """
+    Mock string data. This is a placeholder tool for AI inference.
+    """
+    # This tool is used by AI to request mock data, but we don't need to implement it
+    # because we will handle mock data separately.
+    return {"value": "", "conclusion": "", "solution": ""}

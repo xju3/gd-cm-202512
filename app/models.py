@@ -91,6 +91,12 @@ class WorkOrder(Base):
     # 详情
     details: Mapped[str] = mapped_column(String)
 
+    
+    rule_index: Mapped[int] = mapped_column(Integer)
+    err_index: Mapped[int] = mapped_column(Integer)
+    probability: Mapped[int] = mapped_column(Integer)
+    evidence: Mapped[str] = mapped_column(String)
+
 
 
     # 如果表里还有其他字段，但你不需要用到，可以不在这里定义。
