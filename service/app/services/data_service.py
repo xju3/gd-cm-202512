@@ -140,6 +140,9 @@ def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
         "ne_name": work_order.ne_name,
         "nms_alarm_id": work_order.nms_alarm_id,
         "details": work_order.details,
+        # "rule_index": work_order.rule_index,
+        # "err_index": work_order.err_index,
+        # "probability": work_order.probability,
     }
     
     # 构建提示词（根据用户描述）
@@ -249,9 +252,9 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
         mock = rule.mock
         content = None
         if mock.type == "num":
-            content = mock_numerical_value(mock.name, status, work_order)
+            content = mock_numerical_value(mock.name, float(status), work_order)
         else:
-            content = mock_string_value(mock.name, status, work_order)
+            content = mock_string_value(mock.name, int(round(status)), work_order)
 
         inference.conclusion = content.conclusion
         inference.name = mock.name
@@ -298,10 +301,24 @@ def replace_text_codes(work_order: WorkOrder, text: str) -> str:
     for placeholder in placeholders:
         if placeholder.startswith("JT"):
             # Future implementation for JT prefixed placeholders
-            value = fetch_static_data(placeholder, "")
+            value = _exec_fetch_static_data(placeholder, "")
             text = text.replace(placeholder, str(value))
 
     return text
+
+def _exec_fetch_static_data(item_name: str, param: str):
+    """
+    执行静态数据获取工具，兼容被 @tool 装饰成 StructuredTool 的调用方式。
+    优先使用 .invoke(dict)；若不可用则尝试直接函数调用或 .run(dict)。
+    """
+    try:
+        if hasattr(fetch_static_data, "invoke"):
+            return fetch_static_data.invoke({"item_name": item_name, "param": param})
+        return fetch_static_data(item_name, param)
+    except TypeError:
+        if hasattr(fetch_static_data, "run"):
+            return fetch_static_data.run({"item_name": item_name, "param": param})
+        return {}
 
 def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = ""):
 

@@ -38,6 +38,7 @@ def mock_string_value(item_name: str, status: int, work_order : WorkOrder) -> Mm
     模拟字符串
     """
     try:
+        status = int(round(status))
         if status == 0:
             return MmlContent(id=1, conclusion="", solution="")
     except Exception as e:

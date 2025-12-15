@@ -7,9 +7,14 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
-allure-results
-.env
+service/.venv
+service/allure-results
+service/.env
+service/.env.test
 
 # vs code
 .vscode/
+
+# docker-compose
+docker-compose/data
+docker-compose/docker-compose.yml
