@@ -1,0 +1,75 @@
+services:
+  postgres:
+    container_name: runjian-postgres
+    image: postgres:15-alpine
+    ports:
+      - "35432:5432"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "ci_agent"
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - runjian_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+    restart: unless-stopped
+
+  pgadmin:
+    container_name: runjian-pgadmin
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/dpage/pgadmin4:9.9.0
+    ports:
+      - "7171:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "admin@example.com"
+      PGADMIN_DEFAULT_PASSWORD: "admin123"
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/pgadmin:/var/lib/pgadmin
+    networks:
+      - runjian_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  dbloader:
+    container_name: runjian-dbloader
+    image: postgres:15-alpine
+    command: >
+      sh -c "PGPASSWORD=postgres psql -h postgres -U postgres -d ci_agent -f /sql/public.sql"
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - ./app/files/public.sql:/sql/public.sql:ro
+    networks:
+      - runjian_network
+    depends_on:
+      - postgres
+    restart: "no"
+# volumes:
+#   # 使用绑定挂载，数据目录指向当前仓库
+  
+
+
+networks:
+  runjian_network:
+    name: runjian_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.26.0.0/16
+    driver_opts:
+      com.docker.network.bridge.name: runjian_br0
