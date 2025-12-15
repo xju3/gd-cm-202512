@@ -53,16 +53,32 @@ services:
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ./app/files/public.sql:/sql/public.sql:ro
+      - ./data/files/sql/public.sql:/sql/public.sql:ro
     networks:
       - runjian_network
     depends_on:
       - postgres
     restart: "no"
-# volumes:
-#   # 使用绑定挂载，数据目录指向当前仓库
-  
-
+  app:
+    container_name: runjian-app
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "7190:7190"
+    environment:
+      DATABASE_VENDOR: "postgres"
+      POSTGRES_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/ci_agent"
+      DEBUG_MODE: "false"
+      DEEPSEEK_API_KEY_CUI: ${DEEPSEEK_API_KEY_CUI}
+    volumes:
+      - ../service:/app
+    networks:
+      - runjian_network
+    depends_on:
+      - postgres
+      - dbloader
+    restart: unless-stopped
 
 networks:
   runjian_network:

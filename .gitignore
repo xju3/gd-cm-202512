@@ -12,6 +12,9 @@ service/allure-results
 service/.env
 service/.env.test
 
+# 环境变量
+.env
+
 # vs code
 .vscode/
 
