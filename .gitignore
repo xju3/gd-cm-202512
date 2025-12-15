@@ -17,4 +17,3 @@ service/.env.test
 
 # docker-compose
 docker-compose/data
-docker-compose/docker-compose.yml
