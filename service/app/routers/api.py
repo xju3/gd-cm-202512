@@ -10,6 +10,7 @@ from ..services import data_service
 from ..schemas import PaginatedResponse, InferenceResponse, WorkOrderDTO
 from ..models import WorkOrder
 from ..config import settings
+from ..migrations import ensure_work_order_extra_columns
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
@@ -59,6 +60,7 @@ def diagnosis(
     :rtype: InferenceResponse
     """
     try:
+        ensure_work_order_extra_columns()
         inference_list = data_service.exec(
             work_order_id=work_order_id,
             db=db,
@@ -99,6 +101,7 @@ def get_work_orders(
     :rtype: PaginatedResponse
     """
     try:
+        ensure_work_order_extra_columns()
         # 1. 计算数据库需要的 offset (跳过的条数)
         skip = (page - 1) * size
 
@@ -163,6 +166,7 @@ def trigger_pre_diagnosis(
     :rtype: dict
     """
     try:
+        ensure_work_order_extra_columns()
         data_service.pre_diagnosis(db, batch_size=batch_size)
         return {"success": True, "message": "预诊断完成"}
     except Exception as e:

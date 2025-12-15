@@ -48,12 +48,15 @@ services:
   dbloader:
     container_name: runjian-dbloader
     image: postgres:15-alpine
-    command: >
-      sh -c "PGPASSWORD=postgres psql -h postgres -U postgres -d ci_agent -f /sql/public.sql"
+    command:
+      - sh
+      - -c
+      - |
+          PGPASSWORD=postgres psql -h postgres -U postgres -d ci_agent -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='tju') THEN CREATE ROLE tju LOGIN; END IF; END \$\$;" && PGPASSWORD=postgres psql -h postgres -U postgres -d ci_agent -f /sql/public.sql
     environment:
       TZ: Asia/Shanghai
     volumes:
-      - ./data/files/sql/public.sql:/sql/public.sql:ro
+      - ../service/app/files/sql/public.sql:/sql/public.sql:ro
     networks:
       - runjian_network
     depends_on:
@@ -66,11 +69,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - "7190:7190"
+    env_file:
+      - ../.env
     environment:
       DATABASE_VENDOR: "postgres"
       POSTGRES_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/ci_agent"
       DEBUG_MODE: "false"
-      DEEPSEEK_API_KEY_CUI: ${DEEPSEEK_API_KEY_CUI}
     volumes:
       - ../service:/app
     networks:
@@ -78,6 +82,18 @@ services:
     depends_on:
       - postgres
       - dbloader
+    restart: unless-stopped
+  
+  agent:
+    container_name: runjian-agent
+    image: nginx:latest
+    ports:
+      - "7180:7180"
+    volumes:
+      - ./conf/nginx/etc.conf:/etc/nginx/nginx.conf:ro
+      - ../agent:/usr/share/nginx/html:ro
+    networks:
+      - runjian_network
     restart: unless-stopped
 
 networks:

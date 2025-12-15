@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIOps-Agent 智能排障系统</title>
+  <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"> -->
+  <link rel="stylesheet" href="/css/all.min.css">
+  <link rel="stylesheet" href="/css/agent5.css">
+</head>
+<body class="app-full">
+  <div id="app">
+    <header class="header-sticky">
+      <div class="header-wrapper">
+        <div class="logo-container logo-container-inline" id="logoContainer">
+          <div class="logo logo-small">
+            <i class="fas fa-chess-pawn"></i>
+          </div>
+          <div class="logo-text logo-text-small">智棋 AIOps-Agent</div>
+        </div>
+        <div class="engineer-badge">
+          <i class="fas fa-user-cog"></i>
+          <span>工程师李明</span>
+        </div>
+        <div class="engineer-actions">
+          <button class="action-btn"><i class="fas fa-cog"></i></button>
+          <button class="action-btn"><i class="fas fa-volume-up"></i></button>
+          <button class="action-btn"><i class="fas fa-bell"></i></button>
+        </div>
+        <div class="header-sub">
+          <span class="welcome-text welcome-sub">全域态精准排障，为您智能决策</span>
+        </div>
+      </div>
+      <div class="search-container search-container-wide">
+        <div class="search-icon"><i class="fas fa-search"></i></div>
+        <input type="text" class="search-box search-box--compact" v-model="searchQuery" placeholder="搜索工单号、站址或告警类型..." @focus="historyOpen = true" @blur="onSearchBlur" @keypress.enter="searchSite">
+        <div class="history-dropdown" v-show="historyOpen">
+          <div class="history-item" v-for="item in historyData" :key="item.type + '-' + item.text" @mousedown.prevent="onHistoryClick(item.text)">
+            <i :class="`fas fa-${item.icon}`"></i> {{ item.text }}
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="status-section status-section-wide">
+      <div class="status-strip">
+        <div class="diagnosis-label sticky">智能诊断</div>
+        <div class="status-scroller">
+          <div class="status-card" v-for="card in statusCards" :key="card.id" @click="onCardClick(card.id)">
+            <div class="status-header">
+              <div class="status-icon" :class="card.statusType">
+                <i :class="`fas fa-${card.icon}`"></i>
+              </div>
+              <div class="status-info">
+                <h3>{{ card.name }}</h3>
+                <p>{{ card.status }} · {{ card.extra }}</p>
+              </div>
+            </div>
+            <div class="status-detail">
+              <span class="status-label">优先级</span>
+              <span class="status-value">{{ card.priority }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <main class="main-container">
+      <section class="chat-container chat-container--wide">
+        <div class="chat-window chat-window--compact" id="chatWindow" ref="chatWindow">
+          <div class="message ai-message" v-if="!currentAi">
+            <div class="message-title">
+              <i class="fas fa-robot"></i>
+              <h3>AIOps-Agent</h3>
+            </div>
+            <p>请点击上方告警卡片诊断故障和查询解决方案，若未能解决请继续提问。</p>
+          </div>
+
+          <div class="message ai-message" v-else>
+            <div class="message-title">
+              <i class="fas fa-robot"></i>
+              <h3>AIOps-Agent</h3>
+            </div>
+            <p>AIOps-Agent您好!检测到 <strong>{{ getField('告警对象') }}</strong> 发生{{ getField('告警级别') }}告警，已自动为您启动智能诊断流程</p>
+
+            <div class="diagnosis-tree">
+              <div class="diagnosis-step">
+                <div class="step-title">当前告警信息</div>
+                <div class="step-detail step-detail--fullwidth">
+                  <p><strong>工单号：</strong> {{ getField('工单号') }}</p>
+                  <p><strong>工单时间：</strong> {{ getField('工单时间') }}</p>
+                  <p><strong>告警级别：</strong> {{ getField('告警级别') }}</p>
+                  <p><strong>告警名称：</strong> {{ getField('告警名称') }}</p>
+                  <p><strong>告警对象：</strong> {{ getField('告警对象') }}</p>
+                  <p><strong>告警时间：</strong> {{ getField('告警时间') }}</p>
+                  <p><strong>定位信息：</strong> {{ getField('定位信息') }}</p>
+                </div>
+              </div>
+
+              <div class="diagnosis-step" :class="currentAi.diagnosis.status">
+                <div class="step-title">{{ currentAi.diagnosis.title }}</div>
+                <div class="step-detail">
+                  <p v-for="field in currentAi.diagnosis.fields" :key="field.label"><strong>{{ field.label }}：</strong> {{ field.value }}</p>
+                </div>
+              </div>
+
+              <div class="diagnosis-step">
+                <div class="step-title">{{ currentAi.diagnosisResult.title }}</div>
+                <div class="step-detail">
+                  <p v-for="field in currentAi.diagnosisResult.fields" :key="field.label"><strong>{{ field.label }}：</strong> {{ field.value }}</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="solution-card solution-card--fullwidth">
+              <div class="solution-title">
+              <i class="fas fa-lightbulb"></i>
+              <h3>解决方案</h3>
+            </div>
+            <div v-if="currentAi.solution && currentAi.solution.richHtml" v-html="currentAi.solution.richHtml"></div>
+            <p><strong>安全准备</strong></p>
+            <p v-for="(item, index) in currentAi.solution.safetyPrep" :key="`sp-${index}`">{{ index + 1 }}.{{ item }}</p>
+
+              <p><strong>现场操作步骤</strong></p>
+              <p v-for="(item, index) in currentAi.solution.operationSteps" :key="`op-${index}`">{{ index + 1 }}.{{ item }}</p>
+
+              <p><strong>故障处理闭环归档</strong></p>
+              <p v-for="(item, index) in currentAi.solution.closureArchiving" :key="`cl-${index}`">{{ index + 1 }}.{{ item }}</p>
+
+              <div class="action-buttons">
+                <button class="action-button" v-for="btn in currentAi.buttons" :key="btn.text" :style="{ backgroundColor: btn.color }">
+                  <i :class="`fas fa-${btn.icon}`"></i> {{ btn.text }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.type === 'user' ? 'user-message' : 'ai-message']">
+            <div class="message-title">
+              <i :class="msg.type === 'user' ? 'fas fa-user' : 'fas fa-robot'"></i>
+              <h3>{{ msg.type === 'user' ? '运维工程师' : 'AIOps-Agent' }}</h3>
+            </div>
+            <p v-html="msg.content"></p>
+          </div>
+        </div>
+
+        <div class="input-area input-area--compact">
+          <input type="text" v-model="userInput" placeholder="请输入告警关键词查询解决方案" @keypress.enter="sendMessage">
+          <div class="search-options" style="margin-top: 10px;">
+            <button class="search-option-btn option-smart" :class="{ active: searchMode === 'smart' }" @click="searchMode = 'smart'">
+              <i class="fas fa-brain"></i> 智能洞察
+            </button>
+            <button class="search-option-btn option-deep" :class="{ active: searchMode === 'deep' }" @click="searchMode = 'deep'">
+              <i class="fas fa-search-plus"></i> 深度探索
+            </button>
+          </div>
+          <button class="send-button" @click="sendMessage">
+            <i class="fas fa-chess-pawn"></i>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.2.0/lib/marked.umd.min.js"></script>
+    <script>
+      const { createApp } = Vue;
+      createApp({
+        data() {
+          return {
+            apiBase: (window.APP_CONFIG && window.APP_CONFIG.API_BASE) || '/api/v1',
+            statusCards: [
+              { id: 'WO-2025-0821-001', name: 'GD01007 - 天河站', status: '运行良好', statusType: 'normal', icon: 'shield-alt', extra: '最后检测: 10分钟前 · 健康评分: 98/100', priority: '正常' },
+              { id: 'WO-2025-0821-003', name: 'GNodeBCBN-深圳环观集装', status: '严重告警', statusType: 'alert', icon: 'bolt', extra: '工单号: WO-2025-0821-003 · 告警类型: 小区退服 · 持续时间: 35分钟', priority: '紧急' },
+              { id: 'WO-2025-0821-002', name: 'GD00013 - 珠江新城站', status: '严重告警', statusType: 'alert', icon: 'bolt', extra: '工单号: WO-2025-0821-002 · 告警类型: 电力故障 · 持续时间: 23分钟', priority: '紧急' },
+              { id: 'WO-2025-0821-004', name: 'GNodeBCBN-深圳龙岗集装', status: '严重告警', statusType: 'alert', icon: 'bolt', extra: '工单号: WO-2025-0821-004 · 告警类型: 小区退服 · 持续时间: 45分钟', priority: '紧急' }
+            ],
+            aiMap: {},
+            activeWorkorderId: 'WO-2025-0821-003',
+            searchMode: 'smart',
+            searchQuery: '',
+            historyOpen: false,
+            historyData: [],
+            userInput: '',
+            messages: [],
+            loadingDiagnosisId: ''
+          };
+        },
+        computed: {
+          /**
+           * 获取当前选中工单的AI数据
+           * @returns {Object|null}
+           */
+          currentAi() {
+            return this.aiMap[this.activeWorkorderId];
+          }
+        },
+        methods: {
+          /**
+           * 发起GET请求并处理超时及错误
+           * @param {string} path 相对接口路径
+           * @param {number} timeoutMs 超时时间毫秒
+           * @returns {Promise<any>}
+           */
+          async httpGet(path, timeoutMs = 10000) {
+            const controller = new AbortController();
+            const t = setTimeout(() => controller.abort('timeout'), timeoutMs);
+            try {
+              const url = `${this.apiBase}${path}`;
+              const resp = await fetch(url, { method: 'GET', signal: controller.signal });
+              if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+              return await resp.json();
+            } catch (e) {
+              if (e && e.name === 'AbortError') throw new Error(`请求超时(${timeoutMs}ms)`);
+              throw e;
+            } finally {
+              clearTimeout(t);
+            }
+          },
+          /**
+           * 拉取工单列表并整合为界面数据
+           */
+          async fetchWorkOrders() {
+            try {
+              const data = await this.httpGet('/work-orders');
+              if (data && Array.isArray(data.items)) {
+                const { cards, map, activeId } = this.transformWorkOrders(data.items);
+                this.statusCards = cards;
+                this.aiMap = map;
+                if (activeId) this.activeWorkorderId = activeId;
+              }
+            } catch (e) {
+              this.messages.push({ type: 'ai', content: `接口获取失败，已使用本地示例数据。错误：${e.message || e}` });
+              this.aiMap = {
+                'WO-2025-0821-003': {
+                  alertInfo: {
+                    title: '当前告警信息',
+                    fields: [
+                      { label: '工单号', value: 'WO-2025-0821-003' },
+                      { label: '工单时间', value: '2025-08-21 11:45' },
+                      { label: '告警级别', value: '严重' },
+                      { label: '告警名称', value: '小区退服' },
+                      { label: '告警对象', value: 'GNodeBCBN-深圳环观集装' },
+                      { label: '告警时间', value: '2025-08-21 11:45' },
+                      { label: '定位信息', value: '深圳/龙华区/环观中路' }
+                    ]
+                  },
+                  diagnosis: {
+                    title: '故障诊断',
+                    status: 'success',
+                    fields: [
+                      { label: '动力配套', value: '市电正常，UPS电池容量剩余60%，预计可持续供电2小时' },
+                      { label: '传输链路', value: '光纤链路中断，光功率-35dBm（异常）' },
+                      { label: '无线设备', value: 'BBU运行正常，RRU无告警' },
+                      { label: '历史故障', value: '近3个月同类故障2次，均为光模块故障' }
+                    ]
+                  },
+                  diagnosisResult: {
+                    title: '诊断结果',
+                    fields: [
+                      { label: '故障根因', value: '传输链路' },
+                      { label: '影响范围', value: '基站全业务中断，涉及一镇四站站点' },
+                      { label: '紧急程度', value: '最高优先级' }
+                    ]
+                  },
+                  solution: {
+                    title: '解决方案',
+                    safetyPrep: [
+                      '备件:华为原装 10G 1310 光模块(型号 OSX010N01，需与设备型号匹配)',
+                      '工具:防静电手环、光功率计(用于测试新模块收发光)、螺丝刀(若需拆卸防尘盖)',
+                      '业主沟通:联系业主李生(134-1234-5678)，确认进站时间(建议预留1小时操作窗口)，说明作业内容(更换设备模块，无噪音/断电影响)',
+                      '安全准备:操作人员需持有效电工证(若涉及机房电源区域)，佩戴绝缘鞋、安全帽(若设备在户外机柜)',
+                      '校验确认:记录 3小区当前告警状态及光功率数据(作为恢复验证依据)'
+                    ],
+                    operationSteps: [
+                      '进站与设备定位:到达现场后，与业主李生确认进站，署《基站出入登记表》，由业主引导至 BBU设备位置(非铁塔站点，设备位于校园机房内)',
+                      '更换前操作:佩戴防静电手环，接地确认无误;通过网管远程关闭3小区业务(避免热插拔提坏端口)，记录当前光模块所在槽位(第3小区对应槽位编号:XX-03)',
+                      '拔除旧光模块:捏住模块尾部卡扣，水平拔出，放入防静电袋',
+                      '插入新模块:确认模块型号与槽位匹配，沿导轨水平推入，听到"咔哒"声即安装到位',
+                      '业务验证:网管远程开启3小区业务，观察5分钟',
+                      '告警清除与业务测试:收光-12dBm，发光-7dBm；下行速率>50Mbps',
+                      '收尾工作:业主签字确认，回收旧件并整理工具'
+                    ],
+                    closureArchiving: [
+                      '工单归档:上传处理记录与截图，回复工单"已修复"',
+                      '拆件退仓:旧件入库待检测',
+                      '应急预案:若未恢复，排查CPRI链路并请求支援'
+                    ]
+                  },
+                  buttons: [
+                    { icon: 'check', text: '问题解决', color: '#4CAF50' },
+                    { icon: 'times', text: '问题未解决', color: '#FF5252' },
+                    { icon: 'exchange-alt', text: '工单流转', color: '#81C784' },
+                    { icon: 'robot', text: '自动回单', color: '#81C784' }
+                  ]
+                }
+              };
+            }
+          },
+          /**
+           * 将接口items转换为statusCards和aiMap
+           * @param {Array} items 工单数组
+           * @returns {{cards:Array,map:Object,activeId:string}}
+           */
+          transformWorkOrders(items) {
+            const cards = [];
+            const map = {};
+            for (const it of items) {
+              const card = this.buildStatusCardFromItem(it);
+              cards.push(card);
+              map[card.id] = this.buildAiDataFromItem(it);
+            }
+            const activeId = cards[0]?.id;
+            return { cards, map, activeId };
+          },
+          /**
+           * 由单条工单生成状态卡片
+           * @param {Object} item 工单项
+           * @returns {Object}
+           */
+          buildStatusCardFromItem(item) {
+            const id = item.work_order_id || item.order_id || '';
+            const name = item.ne_name || item.order_subject || id;
+            const alarmName = item.GJ00008 || (item.details && (item.details['告警名称'] || (item.details['告警原文'] && item.details['告警原文'].alarmTitle))) || '告警';
+            const created = item.created_time || item.GJ00021 || '';
+            const statusTextRaw = (item.order_status || '').toLowerCase();
+            const isAlert = statusTextRaw.includes('处理中') || statusTextRaw.includes('受理') || statusTextRaw.includes('告警') || statusTextRaw.includes('等待');
+            const status = isAlert ? '严重告警' : '运行良好';
+            const statusType = isAlert ? 'alert' : 'normal';
+            const icon = isAlert ? 'bolt' : 'shield-alt';
+            const priority = isAlert ? '紧急' : '正常';
+            const extra = `工单号: ${id} · 告警类型: ${alarmName} · 创建时间: ${created}`;
+            return { id, name, status, statusType, icon, extra, priority };
+          },
+          /**
+           * 由单条工单生成AI诊断数据
+           * @param {Object} item 工单项
+           * @returns {Object}
+           */
+          buildAiDataFromItem(item) {
+            const d = item.details || {};
+            const raw = d['告警原文'] || {};
+            const severity = this.mapSeverity(raw.origSeverity);
+            const alarmName = d['告警名称'] || raw.alarmTitle || item.GJ00008 || item.order_subject || '';
+            const objectName = d['告警对象'] || raw.objectName || item.ne_name || '';
+            const eventTime = d['告警时间'] || raw.eventTime || item.GJ00021 || '';
+            const locationInfo = raw.locationInfo || (raw.addInfo && raw.addInfo.DN) || '';
+            const alertInfo = {
+              title: '当前告警信息',
+              fields: [
+                { label: '工单号', value: item.work_order_id || '' },
+                { label: '工单时间', value: item.created_time || '' },
+                { label: '告警级别', value: severity || '未知' },
+                { label: '告警名称', value: alarmName },
+                { label: '告警对象', value: objectName },
+                { label: '告警时间', value: eventTime },
+                { label: '定位信息', value: locationInfo }
+              ]
+            };
+            const diagnosis = {
+              title: '故障诊断',
+              status: 'success',
+              fields: [
+                { label: '告警网管', value: d['告警网管'] || (raw.addInfo && raw.addInfo.deployment) || (item.source_name || '') },
+                { label: '告警地点', value: d['告警地点'] || item.city_name_2 || item.city_name_1 || '' },
+                { label: '告警网元', value: d['告警网元'] || objectName },
+                { label: '覆盖场景', value: d['覆盖场景'] || '未知' }
+              ]
+            };
+            const rootCause = (() => {
+              const t = raw.alarmType || '';
+              if (t.toUpperCase() === 'QUALITYOFSERVICE') return '网络质量';
+              if ((item.GJ00008 || '').includes('退服')) return '小区退服';
+              return t || '未知';
+            })();
+            const diagnosisResult = {
+              title: '诊断结果',
+              fields: [
+                { label: '故障根因', value: rootCause },
+                { label: '影响范围', value: item.order_subject || objectName || '未知' },
+                { label: '紧急程度', value: severity || '未知' }
+              ]
+            };
+            const solution = {
+              title: '解决方案',
+              safetyPrep: [
+                '核对工单信息与站点接入权限',
+                '准备必要防静电与个人防护装备',
+                '沟通现场业主确认操作时间窗口',
+                '记录当前告警与性能基线作为验证依据'
+              ],
+              operationSteps: [
+                '远程复核：通过网管核查关联网元与链路状态',
+                '现场定位：按照定位信息确认设备与端口',
+                '基础排查：检查供电、光模块、链路连接与指示灯',
+                '恢复测试：业务恢复后观察5-10分钟并记录关键指标',
+                '结果确认：清除告警并进行回归验证'
+              ],
+              closureArchiving: [
+                '上传处理过程与现场照片，回单归档',
+                '旧件入库并标记待检测',
+                '如未恢复，升级支撑并追加排查范围'
+              ]
+            };
+            const buttons = [
+              { icon: 'check', text: '问题解决', color: '#4CAF50' },
+              { icon: 'times', text: '问题未解决', color: '#FF5252' },
+              { icon: 'exchange-alt', text: '工单流转', color: '#81C784' },
+              { icon: 'robot', text: '自动回单', color: '#81C784' }
+            ];
+            return { alertInfo, diagnosis, diagnosisResult, solution, buttons };
+          },
+          /**
+           * 告警级别数字转文本
+           * @param {number|string} code 告警级别代码
+           * @returns {string}
+           */
+          mapSeverity(code) {
+            switch (Number(code)) {
+              case 1: return '严重';
+              case 2: return '重要';
+              case 3: return '次要';
+              case 4: return '提示';
+              default: return '';
+            }
+          },
+          /**
+           * 加载指定工单的诊断与解决方案
+           * @param {string} id 工单ID
+           */
+          async loadDiagnosisFor(id) {
+            this.loadingDiagnosisId = id;
+            try {
+              const resp = await this.httpGet(`/diagnosis?work_order_id=${encodeURIComponent(id)}`, 45000);
+              const updated = this.transformDiagnosisResult(resp, this.aiMap[id]);
+              if (updated) this.aiMap[id] = updated;
+            } catch (e) {
+              this.messages.push({ type: 'ai', content: `诊断接口调用失败：${e.message || e}` });
+            } finally {
+              this.loadingDiagnosisId = '';
+            }
+          },
+          /**
+           * 点击状态卡片，先调用诊断接口，再切换当前工单并聚焦窗口
+           * @param {string} id 工单ID
+           */
+          async onCardClick(id) {
+            await this.loadDiagnosisFor(id);
+            this.activeWorkorderId = id;
+            this.focusChatWindow();
+          },
+          /**
+           * 将诊断接口响应整合进 AI 数据结构
+           * @param {any} resp 接口响应
+           * @param {any} base 现有 AI 数据（可为空）
+           * @returns {any}
+           */
+          transformDiagnosisResult(resp, base) {
+            const out = base ? JSON.parse(JSON.stringify(base)) : {};
+            const safeGet = (obj, keyPath, def) => {
+              try {
+                const parts = keyPath.split('.');
+                let v = obj;
+                for (const p of parts) v = v?.[p];
+                return v ?? def;
+              } catch { return def; }
+            };
+            const toList = (val) => {
+              if (Array.isArray(val)) return val.map(x => String(x).trim()).filter(Boolean);
+              if (typeof val === 'string') return val.split(/\r?\n|;|；|、/).map(s => s.trim()).filter(Boolean);
+              return [];
+            };
+            /**
+             * 将 Markdown 文本转换为 HTML（优先使用 marked，降级为简单换行）
+             * @param {string} md
+             * @returns {string}
+             */
+            const mdToHtml = (md) => {
+              try {
+                if (window.marked && typeof window.marked.parse === 'function') {
+                  return window.marked.parse(md);
+                }
+              } catch {}
+              return String(md).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r?\n/g, '<br/>');
+            };
+            const alertInfo = safeGet(resp, 'alertInfo', safeGet(resp, 'data.alertInfo', null));
+            if (alertInfo && Array.isArray(alertInfo.fields)) {
+              out.alertInfo = alertInfo;
+            }
+            const diagnosis = safeGet(resp, 'diagnosis', safeGet(resp, 'data.diagnosis', null));
+            if (diagnosis && Array.isArray(diagnosis.fields)) {
+              out.diagnosis = diagnosis;
+            }
+            const diagnosisResult = safeGet(resp, 'diagnosisResult', safeGet(resp, 'data.diagnosisResult', null));
+            if (diagnosisResult && Array.isArray(diagnosisResult.fields)) {
+              out.diagnosisResult = diagnosisResult;
+            }
+            const solutionRaw = safeGet(resp, 'solution', safeGet(resp, 'data.solution', {}));
+            const safetyPrep = toList(solutionRaw.safetyPrep ?? safeGet(resp, 'safetyPrep', []));
+            const operationSteps = toList(solutionRaw.operationSteps ?? safeGet(resp, 'operationSteps', []));
+            const closureArchiving = toList(solutionRaw.closureArchiving ?? safeGet(resp, 'closureArchiving', []));
+            if (!out.solution) out.solution = { title: '解决方案', safetyPrep: [], operationSteps: [], closureArchiving: [] };
+            if (solutionRaw.title) out.solution.title = solutionRaw.title;
+            if (safetyPrep.length) out.solution.safetyPrep = safetyPrep;
+            if (operationSteps.length) out.solution.operationSteps = operationSteps;
+            if (closureArchiving.length) out.solution.closureArchiving = closureArchiving;
+            // 将后端返回的 data[].solution_content 合并为富文本
+            const items = safeGet(resp, 'data', []);
+            if (Array.isArray(items) && items.length) {
+              const parts = items
+                .map(it => String(it.solution_content || '').trim())
+                .filter(Boolean);
+              if (parts.length) {
+                const mergedMd = parts.join('\n\n---\n\n');
+                out.solution.richHtml = mdToHtml(mergedMd);
+              }
+            }
+            const buttons = safeGet(resp, 'buttons', null);
+            if (Array.isArray(buttons) && buttons.length) out.buttons = buttons;
+            return out;
+          },
+          /**
+           * 获取告警字段值
+           * @param {string} label 字段标签
+           * @returns {string}
+           */
+          getField(label) {
+            const ai = this.currentAi;
+            if (!ai || !ai.alertInfo) return '';
+            const f = ai.alertInfo.fields.find(x => x.label === label);
+            return f ? f.value : '';
+          },
+          /**
+           * 平滑滚动并聚焦聊天窗口
+           */
+          focusChatWindow() {
+            const el = this.$refs.chatWindow;
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              el.focus();
+              setTimeout(() => this.scrollToBottom(), 300);
+            }
+          },
+          /**
+           * 生成历史记录数据
+           */
+          generateHistoryData() {
+            const list = [];
+            this.statusCards.forEach(card => {
+              list.push({ type: 'ticket', text: card.id, icon: 'ticket-alt' });
+              list.push({ type: 'site', text: card.name, icon: 'map-marker-alt' });
+            });
+            Object.keys(this.aiMap).forEach(id => {
+              const data = this.aiMap[id];
+              if (data && data.alertInfo) {
+                const alarmType = data.alertInfo.fields.find(f => f.label === '告警名称').value;
+                list.push({ type: 'alarm', text: alarmType, icon: 'bell' });
+              }
+            });
+            this.historyData = list;
+          },
+          /**
+           * 历史项点击
+           * @param {string} text 文本
+           */
+          onHistoryClick(text) {
+            this.searchQuery = text;
+            this.historyOpen = false;
+            this.searchSite();
+          },
+          /**
+           * 搜索工单/站点/告警
+           */
+          searchSite() {
+            const query = this.searchQuery.trim();
+            if (!query) return;
+            let found = null;
+            const q = query.toLowerCase();
+            const w = this.statusCards.find(c => c.id.toLowerCase().includes(q));
+            if (w) found = w.id;
+            if (!found) {
+              const s = this.statusCards.find(c => c.name.toLowerCase().includes(q));
+              if (s) found = s.id;
+            }
+            if (!found) {
+              for (const id in this.aiMap) {
+                const data = this.aiMap[id];
+                if (data && data.alertInfo) {
+                  const alarmType = data.alertInfo.fields.find(f => f.label === '告警名称').value.toLowerCase();
+                  if (alarmType.includes(q)) { found = id; break; }
+                }
+              }
+            }
+            if (found) {
+              this.loadDiagnosisFor(found)
+                .finally(() => {
+                  this.activeWorkorderId = found;
+                  this.focusChatWindow();
+                });
+              this.messages.unshift({ type: 'user', content: `搜索: ${query}` });
+              this.$nextTick(() => this.scrollToBottom());
+            } else {
+              this.messages.push({ type: 'ai', content: `没有找到与 <strong>"${query}"</strong> 相关的工单、站点或告警信息。` });
+              this.$nextTick(() => this.scrollToBottom());
+            }
+          },
+          /**
+           * 发送消息并模拟AI回复
+           */
+          sendMessage() {
+            const message = this.userInput.trim();
+            if (!message) return;
+            this.messages.push({ type: 'user', content: message });
+            this.userInput = '';
+            this.$nextTick(() => this.scrollToBottom());
+            setTimeout(() => {
+              this.messages.push({ type: 'ai', content: `已收到您的查询：${message}。正在处理中...` });
+              this.$nextTick(() => this.scrollToBottom());
+            }, 1000);
+          },
+          /**
+           * 关闭历史下拉（失焦延迟）
+           */
+          onSearchBlur() {
+            setTimeout(() => { this.historyOpen = false; }, 200);
+          },
+          /**
+           * 滚动到底部
+           */
+          scrollToBottom() {
+            const el = this.$refs.chatWindow;
+            if (el) el.scrollTop = el.scrollHeight;
+          }
+        },
+        mounted() {
+          this.fetchWorkOrders()
+            .finally(() => {
+              this.generateHistoryData();
+              this.scrollToBottom();
+            });
+        }
+      }).mount('#app');
+    </script>
+  </div>
+</body>
+</html>
+
