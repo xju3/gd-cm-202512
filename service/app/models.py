@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 from .database import Base
@@ -95,7 +95,7 @@ class WorkOrder(Base):
     rule_index: Mapped[int] = mapped_column(Integer)
     err_index: Mapped[int] = mapped_column(Integer)
     probability: Mapped[int] = mapped_column(Integer)
-    evidence: Mapped[str] = mapped_column(String)
+    evidence: Mapped[str] = mapped_column(Text)
 
 
 

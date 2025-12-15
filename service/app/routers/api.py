@@ -11,6 +11,7 @@ from ..schemas import PaginatedResponse, InferenceResponse, WorkOrderDTO
 from ..models import WorkOrder
 from ..config import settings
 from ..migrations import ensure_work_order_extra_columns
+from ..utils.file_utils import read_text_file_safe
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
@@ -40,9 +41,7 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
     file_path = project_root / "files" / "solutions" / (code + ".md")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="解决方案文件未找到")
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
-    return content
+    return read_text_file_safe(file_path)
 
 @router.api_route("/diagnosis", methods=["GET", "POST"], response_model=InferenceResponse, description="执行故障诊断")
 def diagnosis(

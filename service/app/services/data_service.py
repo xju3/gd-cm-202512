@@ -8,6 +8,7 @@ from langchain.tools import tool
 from typing import List, Dict, Any
 from langchain_deepseek import ChatDeepSeek
 from langchain_core.messages import HumanMessage
+
 from ..services.mock_service import mock_numerical_value, mock_string_value
 from ..models import WorkOrder
 from ..schemas import Inference, RuleContent
@@ -17,6 +18,9 @@ from ..llm.agent import inference
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
+
+print(f"project_root: {project_root}")
+
 pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
 
 path_rule_json = project_root / "files" / "rules" / "rules.json"
@@ -265,17 +269,25 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
         result.append(inference)
     return result
 
-
 def get_solution(code: str) -> str:
+    from ..utils.file_utils import read_text_file_safe
     if not code.startswith("FA"):
         return code
-    
     file_path = project_root / "files" / "solutions" / (code + ".md")
     if not file_path.exists():
         return ""
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
+    content = read_text_file_safe(file_path)
+
     return content
+
+def sanitize_text(text: str) -> str:
+    """
+    清理文本中的不可打印控制字符并标准化换行，避免前端渲染或序列化异常。
+    """
+    # 标准化换行
+    s = text.replace("\r\n", "\n").replace("\r", "\n")
+    # 去除除 \n、\t 以外的 C0 控制字符
+    return "".join(ch for ch in s if (ch >= " " or ch in ("\n", "\t")))
 
 def replace_rules(work_order: WorkOrder, rules : List[str]) -> List[str]:
     replaced_rules = []

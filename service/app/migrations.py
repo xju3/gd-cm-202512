@@ -29,6 +29,20 @@ def ensure_work_order_extra_columns() -> None:
                 for c in cols:
                     if c not in existing:
                         conn.execute(text(ddl[c]))
+                # evidence 类型校验与修正为 TEXT
+                dt_rs = conn.execute(
+                    text(
+                        "SELECT data_type FROM information_schema.columns WHERE table_name='work_order' AND column_name='evidence'"
+                    )
+                ).fetchone()
+                if dt_rs is not None:
+                    curr_type = dt_rs[0]
+                    if curr_type is None or curr_type.lower() != "text":
+                        conn.execute(
+                            text(
+                                "ALTER TABLE work_order ALTER COLUMN evidence TYPE TEXT USING evidence::text"
+                            )
+                        )
             break
         except Exception as e:
             time.sleep(2)
