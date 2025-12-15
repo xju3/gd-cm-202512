@@ -62,7 +62,7 @@ services:
   app:
     container_name: runjian-app
     build:
-      context: ..
+      context: ../service
       dockerfile: Dockerfile
     ports:
       - "7190:7190"
