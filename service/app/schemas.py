@@ -56,8 +56,7 @@ class InferenceResponse(BaseModel):
         ..., 
         description="推理结果数据", 
     )   
-
-
+    
 class Inference(BaseModel):
     """推理结果数据"""
     name: str = Field(
@@ -84,8 +83,6 @@ class Inference(BaseModel):
         ..., 
         description="方案编号", 
     ),
-
-    
 
 class WorkOrderDTO(BaseModel):
     """单条工单数据 (保持不变)"""
@@ -125,7 +122,7 @@ class WorkOrderDTO(BaseModel):
     GJ00017: Optional[str] = Field(
         default=None, 
         description="GJ00017-网络2级分类", 
-        examples=["华为", "中兴"]
+        examples=["LTE无线网", "5G无线网"]
     )
     
     GJ00021: Optional[str] = Field(
@@ -181,6 +178,56 @@ class WorkOrderDTO(BaseModel):
         default=None, 
         description="网管侧原始告警ID", 
         examples=["250205592"]
+    )
+    
+    warning_level: Optional[str] = Field(
+        default=None, 
+        description="net element name", 
+        examples=["250205592"]
+    )
+
+    # 以下为新增字段：
+    current_owner_role: Optional[str] = Field(
+        default=None, 
+        description="当前责任人角色", 
+        examples=["中贝-深圳-无线2023-福田维护中心-维护组8"]
+    )
+
+    dispatcher_profession: Optional[str] = Field(
+        default=None, 
+        description="站点产权单位", 
+        examples=["中国铁塔"]
+    )
+
+    alarm_nms_source: Optional[str] = Field(
+        default=None, 
+        description="告警网管来源", 
+        examples=["FMC"]
+    )
+
+    process_region: Optional[str] = Field(
+        default=None, 
+        description="所属区域", 
+        examples=["珠海香洲区"]
+    )
+
+    network_level_3: Optional[str] = Field(
+        default=None, 
+        description="网络3级分类", 
+        examples=["eNodeB", "GNodeB"]
+    )
+
+    is_device_reason: Optional[str] = Field(
+        default=None, 
+        description="事件对业务的影响", 
+        examples=["可能业务受影响"]
+    )
+
+    # GJ00022-故障发生时间
+    order_level: Optional[str] = Field(
+        default=None, 
+        description="故障发生时间", 
+        examples=["2025/6/14 23:22:00"]
     )
     
     # 这是一个联合类型，描述需要写清楚

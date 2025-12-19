@@ -23,10 +23,29 @@ class Settings(BaseSettings):
     # 读取根目录下的 .env
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
     
-    # 过渡数据，用于构建其他列表
-    json_rules: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'rules' / 'rules.json', 'r', encoding='utf-8')) 
-    json_mml_num: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'data' / 'mml_num.json', 'r', encoding='utf-8'))
-    json_mml_str: List[Dict[str, Any]] = json.load(open(project_root / "app" / 'files' / 'data' /'mml_str.json', 'r', encoding='utf-8'))
+    # 过渡数据，用于构建其他列表（健壮读取，兼容不同编码）
+    @staticmethod
+    def _read_json_file_safe(p: Path) -> List[Dict[str, Any]]:
+        """
+        健壮读取 JSON 文件：
+        1) 以字节方式读取，避免错误编码导致异常
+        2) 依次尝试 utf-8/utf-8-sig/gb18030/gbk 解码
+        3) 若均失败，使用 utf-8 并替换非法字节
+        """
+        raw = p.read_bytes()
+        text = None
+        for enc in ("utf-8", "utf-8-sig", "gb18030", "gbk"):
+            try:
+                text = raw.decode(enc)
+                break
+            except Exception:
+                continue
+        if text is None:
+            text = raw.decode("utf-8", errors="replace")
+        return json.loads(text)
+    json_rules: List[Dict[str, Any]] = _read_json_file_safe(project_root / 'app'  / 'files' / 'rules' / 'rules.json') 
+    json_mml_num: List[Dict[str, Any]] = _read_json_file_safe(project_root / 'app'  / 'files' / 'data' / 'mml_num.json')
+    json_mml_str: List[Dict[str, Any]] = _read_json_file_safe(project_root / 'app'  / 'files' / 'data' /'mml_str.json')
     
     # 解析后的列表
     diagnosis_rule_list: List[DiagnosisRule] = [DiagnosisRule(**item) for item in json_rules]

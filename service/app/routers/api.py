@@ -12,6 +12,7 @@ from ..models import WorkOrder
 from ..config import settings
 from ..migrations import ensure_work_order_extra_columns
 from ..utils.file_utils import read_text_file_safe
+from starlette.responses import PlainTextResponse
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
@@ -38,10 +39,11 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
     :return: Description
     :rtype: str
     """
-    file_path = project_root / "files" / "solutions" / (code + ".md")
+    file_path = project_root  / "files" / "solutions" / (code + ".md")
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="解决方案文件未找到")
-    return read_text_file_safe(file_path)
+    content = read_text_file_safe(file_path)
+    return PlainTextResponse(content=content, media_type="text/markdown; charset=utf-8")
 
 @router.api_route("/diagnosis", methods=["GET", "POST"], response_model=InferenceResponse, description="执行故障诊断")
 def diagnosis(

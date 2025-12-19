@@ -262,8 +262,9 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
 
         inference.conclusion = content.conclusion
         inference.name = mock.name
-        inference.solution_code = content.solution
-        inference.solution_content = get_solution(content.solution)
+        norm_code = normalize_solution_code(content.solution)
+        inference.solution_code = norm_code
+        inference.solution_content = get_solution(norm_code)
         inference.descriptions = replace_text_codes(work_order, rule.descriptions) 
         inference.curr_rules = replace_rules(work_order, rule.curr_rules)
         result.append(inference)
@@ -279,6 +280,21 @@ def get_solution(code: str) -> str:
     content = read_text_file_safe(file_path)
 
     return content
+
+def normalize_solution_code(code: str) -> str:
+    """
+    规范化方案编号，容错处理乱码或非ASCII字符：
+    - 提取形如 FA + 数字 的片段作为有效编号
+    - 若提取失败，返回原始值
+    """
+    try:
+        import re
+        m = re.search(r"(FA\d+)", str(code))
+        if m:
+            return m.group(1)
+        return str(code)
+    except Exception:
+        return str(code)
 
 def sanitize_text(text: str) -> str:
     """
