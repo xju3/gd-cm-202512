@@ -130,7 +130,22 @@ header { display:flex; flex-direction:column; padding:0 24px 8px; border-top:1px
   .solution-card{ width:100% !important; padding:10px 12px !important; }
   .solution-card > p{ padding:0 6px; }
   .search-container-wide { width:100%; margin-left:auto; margin-right:auto; }
-  .diagnosis-label { display:none; }
+  .diagnosis-label {
+    display:flex;
+    writing-mode:vertical-rl;
+    text-orientation:mixed;
+    font-size:12px;
+    font-weight:600;
+    color:#2E7D32;
+    padding:8px 4px;
+    background:rgba(76,175,80,.1);
+    border-radius:6px 0 0 6px;
+    align-items:center;
+    justify-content:center;
+    position:sticky;
+    left:0;
+    z-index:2;
+  }
   .status-strip { gap:8px; }
   .status-section-wide { padding:8px 8px; }
 }
