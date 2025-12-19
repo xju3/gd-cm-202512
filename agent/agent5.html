@@ -341,9 +341,10 @@
            * @returns {Object}
            */
           buildAiDataFromItem(item) {
+            console.log('item.warning_level', item.warning_level);
             const d = item.details || {};
             const raw = d['告警原文'] || {};
-            const severity = this.mapSeverity(raw.origSeverity);
+            const severity = item.warning_level || '';
             const alarmName = d['告警名称'] || raw.alarmTitle || item.GJ00008 || item.order_subject || '';
             const objectName = d['告警对象'] || raw.objectName || item.ne_name || '';
             const eventTime = d['告警时间'] || raw.eventTime || item.GJ00021 || '';
@@ -353,7 +354,7 @@
               fields: [
                 { label: '工单号', value: item.work_order_id || '' },
                 { label: '工单时间', value: item.created_time || '' },
-                { label: '告警级别', value: severity || '未知' },
+                { label: '告警级别', value: severity || '' },
                 { label: '告警名称', value: alarmName },
                 { label: '告警对象', value: objectName },
                 { label: '告警时间', value: eventTime },

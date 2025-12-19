@@ -353,7 +353,7 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
     count_stmt = (
         select(func.count())
         .select_from(WorkOrder)
-        .where(WorkOrder.GJ00008.contains("退服"))
+       # .where(WorkOrder.GJ00008.contains("退服"))
     )
 
     if keyword is not None:
@@ -363,7 +363,7 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
     if total is None:
         total = 0
 
-    stmt = select(WorkOrder).where(WorkOrder.GJ00008.contains("退服"))
+    stmt = select(WorkOrder) #.where(WorkOrder.GJ00008.contains("退服"))
     if keyword is not None:
         stmt = stmt.where(WorkOrder.work_order_id.contains(keyword))
     stmt = stmt.offset(skip).limit(limit)
