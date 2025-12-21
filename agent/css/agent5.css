@@ -18,15 +18,27 @@ header { display:flex; flex-direction:column; padding:0 24px 8px; border-top:1px
 .header-sticky { padding-bottom:0; width:100vw; min-width:100vw; flex-shrink:0; }
 .header-wrapper { display:flex; flex-direction:column; width:100%; gap:0; position:relative; }
 .logo-container-inline { display:flex;align-self:flex-start; margin-bottom:0; }
-.logo-small { width:36px; height:36px; }
-.logo-small i { color:#555; font-size:20px; }
-.logo-text-small { font-size:16px; }
+.logo-small { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.logo-gradient { 
+  background: radial-gradient(120px 120px at 30% 30%, rgba(198, 245, 208, 0.9) 0%, rgba(152, 222, 184, 0.9) 55%, rgba(236, 248, 240, 0.85) 100%);
+  box-shadow: 0 2px 8px rgba(76,175,80,.25), inset 0 0 10px rgba(255,255,255,.6);
+  border: 1px solid rgba(76,175,80,.2);
+}
+.logo-small i { color:#2E7D32; font-size:20px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.1)); }
+.logo-text-small { font-size:18px; font-weight:600; margin-left:10px; }
+.logo-text-gradient {
+  background: linear-gradient(90deg, #43A047 0%, #4CAF50 35%, #6BA3A9 75%, #607D8B 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: .5px;
+}
 .engineer-badge { position:absolute; right:16px; top:8px; display:flex; align-items:center; background:rgba(232,245,233,.9); padding:4px 8px; border-radius:16px; box-shadow:0 2px 6px rgba(0,0,0,.1); border:1px solid rgba(76,175,80,.2); }
 .engineer-badge i { color:#2E7D32; margin-right:6px; font-size:14px; }
 .engineer-badge span { font-size:10px; font-weight:500; color:#2E7D32; }
 .engineer-actions { position:absolute; right:16px; top:40px; display:flex; gap:12px; background:transparent; padding:0; }
 .engineer-actions .action-btn { width:16px; height:16px; background:rgba(232,245,233,.9); border:1px solid rgba(76,175,80,.2); color:#2E7D32; font-size:10px; padding:0; border-radius:50%; }
-.welcome-sub { margin-left:42px; font-size:10px; color:var(--text-secondary); margin-top:-2px; }
+.welcome-sub { margin-left:52px; font-size:12px; color:#90A4AE; margin-top:-2px; }
 
 .search-container { flex:1; max-width:100%; position:relative; }
 .search-container-wide { margin-top:8px; width:100%; margin-left:0; margin-right:0; }
