@@ -5,6 +5,8 @@ from typing import Optional, Any, Dict, Union
 from pydantic import BaseModel, ConfigDict, field_validator, Field 
 from typing import Optional, Any, Dict, Union
 import json
+import re
+import ast
 
 class MmlContent(BaseModel):
     """
@@ -248,7 +250,14 @@ class WorkOrderDTO(BaseModel):
     @classmethod
     def parse_details_to_json(cls, v):
         """
-        主解析逻辑：尽最大努力解析，失败则回退到原始值
+        解析 details 字段，最大努力将“告警原文”转为 JSON 对象：
+        1) 先解析外层的逐行 Key:Value 结构
+        2) 对“告警原文”优先使用 json.loads；若失败，执行二次处理：
+           - 清理尾逗号、BOM、换行等常见格式问题
+           - 使用 ast.literal_eval 解析类 Python 字典文本
+           - 规范化单引号、True/False/None 与未加引号的键
+           - 对分号样式的“addInfo”进行结构化解析
+        3) 任意环节失败则保留原始字符串
         """
         # 如果本身不是字符串（已经是字典或None），直接返回
         if not v or not isinstance(v, str):
@@ -310,9 +319,17 @@ class WorkOrderDTO(BaseModel):
                         parsed_data["告警原文"] = alarm_content
                         
                 except Exception:
-                    # json.loads 失败，或者后续处理出错
-                    # 捕获所有异常，不做任何修改，保留 "告警原文" 为原始字符串
-                    pass
+                    # json.loads 失败，执行二次处理，将文本尽可能修复为合法 JSON
+                    fixed_obj = cls._try_fix_json_text(parsed_data["告警原文"])
+                    if isinstance(fixed_obj, (dict, list)):
+                        # 二次修复成功，继续处理 addInfo
+                        if isinstance(fixed_obj, dict) and "addInfo" in fixed_obj:
+                            original_add_info = fixed_obj["addInfo"]
+                            if isinstance(original_add_info, str):
+                                parsed_add_info = cls._parse_semicolon_string(original_add_info)
+                                if parsed_add_info:
+                                    fixed_obj["addInfo"] = parsed_add_info
+                        parsed_data["告警原文"] = fixed_obj
 
             return parsed_data
 
@@ -362,6 +379,64 @@ class WorkOrderDTO(BaseModel):
             
         except Exception:
             return None
+    
+    @staticmethod
+    def _try_fix_json_text(text: str) -> Optional[Union[Dict[str, Any], List[Any]]]:
+        """
+        对不合法的 JSON 文本进行二次修复并解析：
+        - 清理 BOM、尾随逗号、无意义换行等
+        - 先尝试 json.loads；失败后使用 ast.literal_eval 解析 Python 风格字典
+        - 正则为未加引号的键补充引号，规范 True/False/None 与单引号
+        - 若文本表现为分号样式的键值对，转换为字典
+        返回解析后的对象（dict 或 list），失败返回 None。
+        """
+        if not text:
+            return None
+        # 预清理
+        s = text.strip().lstrip("\ufeff")
+        # 统一全角/智能引号为标准双引号
+        s = s.replace("\u201c", '"').replace("\u201d", '"').replace("\uFF02", '"')
+        # 去除尾随逗号
+        s = re.sub(r",\s*(\})", r"\1", s)
+        s = re.sub(r",\s*(\])", r"\1", s)
+        # 尝试直接 JSON 解析
+        try:
+            obj = json.loads(s, strict=False)
+            # 若解析结果为字符串，说明外层是一个 JSON 字符串包裹的对象，继续尝试解析其内容
+            if isinstance(obj, str):
+                s = obj
+            else:
+                return obj if isinstance(obj, (dict, list)) else None
+        except Exception:
+            pass
+        # 尝试 Python 风格字典解析
+        try:
+            py_obj = ast.literal_eval(s)
+            return py_obj if isinstance(py_obj, (dict, list)) else None
+        except Exception:
+            pass
+        # 规范未加引号的键、替换单引号与布尔/空值
+        try:
+            temp = s
+            # 为未加引号的键补充引号（支持中文键）
+            temp = re.sub(r'([\{\[,]\s*)([A-Za-z0-9_\u4e00-\u9fff]+)\s*:', r'\1"\2":', temp)
+            # 将单引号替换为双引号
+            temp = re.sub(r"'", r'"', temp)
+            # 规范 Python 布尔/空值到 JSON
+            temp = temp.replace(" None", " null").replace(": None", ": null")
+            temp = re.sub(r"\bTrue\b", "true", temp)
+            temp = re.sub(r"\bFalse\b", "false", temp)
+            obj = json.loads(temp, strict=False)
+            if isinstance(obj, (dict, list)):
+                return obj
+        except Exception:
+            pass
+        # 分号样式键值对（如 "k1:v1;k2:v2"）
+        if ";" in s and ":" in s and "{" not in s and "[" not in s:
+            kv = WorkOrderDTO._parse_semicolon_string(s)
+            if kv:
+                return kv
+        return None
     
 class PaginatedResponse(BaseModel):
     """
