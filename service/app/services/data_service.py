@@ -1,6 +1,7 @@
 import re
 import json
 import os
+import copy
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func  # 👈 别忘了导入 func
 from pathlib import Path
@@ -254,6 +255,8 @@ def digonisis(
     if rule_index > len(rule_contents):
         rule_index = len(rule_contents)
 
+    local_process_info = copy.deepcopy(process_info)
+    
     for rule in rule_contents:
         if rule.id > rule_index:
             break
@@ -287,9 +290,9 @@ def digonisis(
         inference.descriptions = replace_text_codes(work_order, rule.descriptions)
         inference.curr_rules = replace_rules(work_order, rule.curr_rules)
         if content.process_id > 0:
-            process_info[content.process_id - 1] = content.process_message
-            process_info[2] = replace_text_codes(work_order, process_info[2])
-            inference.processes = process_info
+            local_process_info[content.process_id - 1] = content.process_message
+            local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
+            inference.processes = local_process_info
         result.append(inference)
     return result
 
