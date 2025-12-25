@@ -21,14 +21,19 @@ project_root = current_file.parent.parent
 
 print(f"project_root: {project_root}")
 
-pattern = r'(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])'
+pattern = r"(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])"
 
 path_rule_json = project_root / "files" / "rules" / "rules.json"
 path_mock_json = project_root / "files" / "data" / "mml_str.json"
 
-def exec(
-    work_order_id: str, db: Session
-) -> List[Inference]:
+process_info = [
+    "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（正常）。",
+    "PTN/SPN设备无脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。",
+    "GJ00011的ENodeB设备，BBU配置型号为Baseband 6648，存在温度正常；BBU由铁塔直流供电，供电电压54V（正常）。",
+]
+
+
+def exec(work_order_id: str, db: Session) -> List[Inference]:
     """
     执行故障诊断，使用 AI 自动判断 rule_index 和 err_index。
     """
@@ -53,7 +58,7 @@ def exec(
         rule_name = "TF-002"
     if "基站" in item.GJ00008:
         rule_name = "TF-001"
-    
+
     # 调用 digonisis，传入工单中的 rule_index 和 err_index
     try:
         err_index_float = float(item.err_index) if item.err_index else 1.0
@@ -62,11 +67,13 @@ def exec(
     rule_index_int = item.rule_index if item.rule_index else 1
     return digonisis(item, rule_index_int, err_index_float, rule_name)
 
+
 def get_deepseek_api_key() -> str | None:
     """
     获取 DeepSeek API Key，兼容环境变量 `DEEPSEEK_API_KEY` 与 `DEEPSEEK_API_KEY_CUI`。
     """
     return os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("DEEPSEEK_API_KEY_CUI")
+
 
 def normalize_inference_result(result: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -76,6 +83,7 @@ def normalize_inference_result(result: Dict[str, Any]) -> Dict[str, Any]:
     - probability: int，支持将小数或百分比字符串转换为 0~100 的整数
     - evidence: str，缺省为空字符串
     """
+
     def to_int(value: Any, default: int = 0) -> int:
         try:
             if isinstance(value, bool):
@@ -112,16 +120,17 @@ def normalize_inference_result(result: Dict[str, Any]) -> Dict[str, Any]:
         "evidence": evidence,
     }
 
+
 def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
     """
     使用 AI 推理工单，返回 rule_index, error_index, probability, evidence。
     """
     # 加载规则和 mock 数据
-    with open(path_rule_json, 'r', encoding='utf-8') as f:
+    with open(path_rule_json, "r", encoding="utf-8") as f:
         rule_json = json.load(f)
-    with open(path_mock_json, 'r', encoding='utf-8') as f:
+    with open(path_mock_json, "r", encoding="utf-8") as f:
         mock_json = json.load(f)
-    
+
     # 构建工单 JSON
     work_order_dict = {
         "work_order_id": work_order.work_order_id,
@@ -148,7 +157,7 @@ def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
         # "err_index": work_order.err_index,
         # "probability": work_order.probability,
     }
-    
+
     # 构建提示词（根据用户描述）
     prompt = f"""
 你是通讯行业4G,5G设备故障分析专家, 深刻了解此行业的设备所生的故障与原因, 请分析work_order.json的内容, 在规则列表(rules_json)中找到的最有可能发生的故障节点, 再根据例命中的节点, 找到对应的mock数据, 根据mock.name在mock数据(mml_str_json)中找到与工单(work_order.json)所对应有的内容编号, 注意,如果工单(work_order.json)的GJ00008=小区退服, 在rule_json中的name=TF-002中进行匹配, 如果工单(work_order.json)的GJ00008=基站退服, 在rule_json中的name=TF-001中进行匹配, 返回 {{"rule_index": number, error_index: number, probability: percentage, evidence: ""}},  rule_index取相应rule的Id, error_index取相应内容的Id, probability是你推理结果的可能性, evidence是的推理出结果所使用的依据, 如果不能推导出结果, 或Probabiliy低于50%, 则在定义的规则范围内随机取一个规则后, 再根据mock.name在Mock数据中随机取一个值,在随机状态与Probabiliy还是要提供给我们, evidence可以不提供
@@ -162,7 +171,7 @@ rules_json:
 mml_str_json:
 {json.dumps(mock_json, ensure_ascii=False, indent=2)}
 """
-    
+
     # 调用 DeepSeek
     llm = ChatDeepSeek(
         model="deepseek-chat",
@@ -172,15 +181,15 @@ mml_str_json:
         timeout=None,
         max_retries=2,
     )
-    
+
     response = llm.invoke([HumanMessage(content=prompt)])
     content = response.content.strip()
-    
+
     # 尝试解析 JSON
     try:
         # 提取 JSON 部分
-        start = content.find('{')
-        end = content.rfind('}') + 1
+        start = content.find("{")
+        end = content.rfind("}") + 1
         if start >= 0 and end > start:
             json_str = content[start:end]
             result = json.loads(json_str)
@@ -192,10 +201,11 @@ mml_str_json:
             "rule_index": 1,
             "error_index": 1,
             "probability": 0,
-            "evidence": "解析失败: " + str(e)
+            "evidence": "解析失败: " + str(e),
         }
-    
+
     return result
+
 
 def pre_diagnosis(db: Session, batch_size: int = 100):
     """
@@ -223,32 +233,41 @@ def pre_diagnosis(db: Session, batch_size: int = 100):
         if skip >= total:
             break
 
-def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) -> List[Inference]: 
-    
+
+def digonisis(
+    work_order: WorkOrder, rule_index, err_index: float, rule_name
+) -> List[Inference]:
+
     if rule_name is None:
         return []
-    
-    result : List[Inference] = []
-    rule_contents : List[RuleContent] = []
+
+    result: List[Inference] = []
+    rule_contents: List[RuleContent] = []
     for item in settings.diagnosis_rule_list:
-        if item.name ==  rule_name:
+        if item.name == rule_name:
             rule_contents = item.rules
-            break 
-    
+            break
 
     if rule_index < 1:
         rule_index = 1
 
     if rule_index > len(rule_contents):
         rule_index = len(rule_contents)
-    
+
     for rule in rule_contents:
         if rule.id > rule_index:
             break
         inference = Inference(
-            descriptions="", conclusion="", solution_code="", solution_content="", error="", curr_rules=[], name= ""
+            descriptions="",
+            conclusion="",
+            solution_code="",
+            solution_content="",
+            error="",
+            curr_rules=[],
+            name="",
+            processes=[],
         )
-    
+
         status = 0
         if rule.id == rule_index:
             status = err_index
@@ -265,13 +284,19 @@ def digonisis(work_order: WorkOrder, rule_index, err_index: float, rule_name) ->
         norm_code = normalize_solution_code(content.solution)
         inference.solution_code = norm_code
         inference.solution_content = get_solution(norm_code)
-        inference.descriptions = replace_text_codes(work_order, rule.descriptions) 
+        inference.descriptions = replace_text_codes(work_order, rule.descriptions)
         inference.curr_rules = replace_rules(work_order, rule.curr_rules)
+        if content.process_id > 0:
+            process_info[content.process_id - 1] = content.process_message
+            process_info[2] = replace_text_codes(work_order, process_info[2])
+            inference.processes = process_info
         result.append(inference)
     return result
 
+
 def get_solution(code: str) -> str:
     from ..utils.file_utils import read_text_file_safe
+
     if not code.startswith("FA"):
         return code
     file_path = project_root / "files" / "solutions" / (code + ".md")
@@ -281,6 +306,7 @@ def get_solution(code: str) -> str:
 
     return content
 
+
 def normalize_solution_code(code: str) -> str:
     """
     规范化方案编号，容错处理乱码或非ASCII字符：
@@ -289,12 +315,14 @@ def normalize_solution_code(code: str) -> str:
     """
     try:
         import re
+
         m = re.search(r"(FA\d+)", str(code))
         if m:
             return m.group(1)
         return str(code)
     except Exception:
         return str(code)
+
 
 def sanitize_text(text: str) -> str:
     """
@@ -305,12 +333,14 @@ def sanitize_text(text: str) -> str:
     # 去除除 \n、\t 以外的 C0 控制字符
     return "".join(ch for ch in s if (ch >= " " or ch in ("\n", "\t")))
 
-def replace_rules(work_order: WorkOrder, rules : List[str]) -> List[str]:
+
+def replace_rules(work_order: WorkOrder, rules: List[str]) -> List[str]:
     replaced_rules = []
     for rule in rules:
         replaced_text = replace_text_codes(work_order, rule)
         replaced_rules.append(replaced_text)
     return replaced_rules
+
 
 def replace_text_codes(work_order: WorkOrder, text: str) -> str:
     """
@@ -324,7 +354,7 @@ def replace_text_codes(work_order: WorkOrder, text: str) -> str:
     for placeholder in placeholders:
         if placeholder.startswith("GJ"):
             value = getattr(work_order, placeholder, f"{{{placeholder}}}")
-            text = text.replace(placeholder, str(value))    
+            text = text.replace(placeholder, str(value))
 
     for placeholder in placeholders:
         if placeholder.startswith("JT"):
@@ -333,6 +363,7 @@ def replace_text_codes(work_order: WorkOrder, text: str) -> str:
             text = text.replace(placeholder, str(value))
 
     return text
+
 
 def _exec_fetch_static_data(item_name: str, param: str):
     """
@@ -348,12 +379,12 @@ def _exec_fetch_static_data(item_name: str, param: str):
             return fetch_static_data.run({"item_name": item_name, "param": param})
         return {}
 
+
 def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = ""):
 
     count_stmt = (
-        select(func.count())
-        .select_from(WorkOrder)
-       # .where(WorkOrder.GJ00008.contains("退服"))
+        select(func.count()).select_from(WorkOrder)
+        # .where(WorkOrder.GJ00008.contains("退服"))
     )
 
     if keyword is not None:
@@ -363,7 +394,7 @@ def get_work_orders(db: Session, skip: int = 0, limit: int = 10, keyword: str = 
     if total is None:
         total = 0
 
-    stmt = select(WorkOrder) #.where(WorkOrder.GJ00008.contains("退服"))
+    stmt = select(WorkOrder)  # .where(WorkOrder.GJ00008.contains("退服"))
     if keyword is not None:
         stmt = stmt.where(WorkOrder.work_order_id.contains(keyword))
     stmt = stmt.offset(skip).limit(limit)
@@ -385,6 +416,7 @@ def fetch_static_data(item_name: str, param: str):
         return {"station_id": "440106040010002750", "station_name": "南头站"}
     return {}
 
+
 @tool(description="Mock numerical data based on item name and status")
 def numeric_mock(item_name: str, status: float):
     """
@@ -393,6 +425,7 @@ def numeric_mock(item_name: str, status: float):
     # This tool is used by AI to request mock data, but we don't need to implement it
     # because we will handle mock data separately.
     return {"value": 0, "conclusion": "", "solution": ""}
+
 
 @tool(description="Mock string data based on item name and status")
 def string_mock(item_name: str, status: int):

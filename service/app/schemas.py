@@ -15,6 +15,9 @@ class MmlContent(BaseModel):
     id: int
     conclusion: str
     solution: str
+    process_id: int
+    process_message: str
+    
 
 class MmlNumSetting(BaseModel):
     key: str
@@ -84,6 +87,10 @@ class Inference(BaseModel):
     solution_code: str = Field(
         ..., 
         description="方案编号", 
+    ),
+    processes: List[str] = Field(
+        ..., 
+        description="推断过程", 
     ),
 
 class WorkOrderDTO(BaseModel):

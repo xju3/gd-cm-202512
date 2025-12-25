@@ -40,9 +40,9 @@ def mock_string_value(item_name: str, status: int, work_order : WorkOrder) -> Mm
     try:
         status = int(round(status))
         if status == 0:
-            return MmlContent(id=1, conclusion="", solution="")
+            return MmlContent(id=1, conclusion="", solution="", process_id=0, process_message="")
     except Exception as e:
-        return MmlContent(id=1, conclusion="", solution="模拟数据异常：" + str(e))
+        return MmlContent(id=1, conclusion="", process_id=0, process_message="", solution="模拟数据异常：" + str(e))
 
     item = next(
         setting for setting in settings.mml_str_list if setting.key == item_name

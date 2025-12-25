@@ -5,27 +5,37 @@
             {
                 "id": 1,
                 "conclusion": "LICENSE资源不足",
-                "solution": "FA00008"
+                "solution": "FA00008",
+                "process_id": 2,
+                "process_message": "LICENSE资源不足, PTN/SPN设备没脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 2,
                 "conclusion": "频点配置错误",
-                "solution": "FA00009"
+                "solution": "FA00009",
+                "process_id": 2,
+                "process_message": "频点配置错误, PTN/SPN设备没脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 3,
                 "conclusion": "功率配置错误",
-                "solution": "FA00010"
+                "solution": "FA00010",
+                "process_id": 2,
+                "process_message": "功率配置错误, PTN/SPN设备没脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 4,
                 "conclusion": "基带单元能力不足",
-                "solution": "FA00011"
+                "solution": "FA00011",
+                "process_id": 2,
+                "process_message": "基带单元能力不足, PTN/SPN设备没脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 5,
                 "conclusion": "基带板件故障",
-                "solution": "FA00012"
+                "solution": "FA00012",
+                "process_id": 2,
+                "process_message": "基带板件故障, PTN/SPN设备没脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             }
         ]
     },
@@ -35,27 +45,37 @@
             {
                 "id": 1,
                 "conclusion": "PTN/SPN至BBU端故障（PTN/SPN板件、端口；机房内尾纤；传输光缆；BBU端主控板、光模块）",
-                "solution": "FA00017"
+                "solution": "FA00017",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 2,
                 "conclusion": "光模块、尾纤、传输故障",
-                "solution": "FA00007"
+                "solution": "FA00007",
+                "process_id": 2,
+                "process_message": "光模块、尾纤、传输故障, PTN/SPN设备正常、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS正常。"
             },
             {
                 "id": 3,
                 "conclusion": "时钟盒/GPS故障",
-                "solution": "FA00014"
+                "solution": "FA00014",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常),时钟盒/GPS故障(异常)。"
             },
             {
                 "id": 4,
                 "conclusion": "BBU侧设备故障",
-                "solution": "FA00015"
+                "solution": "FA00015",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），, BBU侧设备故障(异常)。"
             },
             {
                 "id": 5,
                 "conclusion": "RRU端故障",
-                "solution": "FA00001"
+                "solution": "FA00001",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常), RRU端故障(异常)。"
             }
         ]
     },
@@ -65,7 +85,9 @@
             {
                 "id": 1,
                 "conclusion": "市电电力故障",
-                "solution": "FA00005"
+                "solution": "FA00005",
+                "process_id": 1,
+                "process_message": "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度74℃（异常）；整流模块无告警（正常），电池无异常放电（正常）。"
             }
         ]
     },
@@ -75,7 +97,9 @@
             {
                 "id": 1,
                 "conclusion": "整流模块故障",
-                "solution": "FA00006"
+                "solution": "FA00006",
+                "process_id": 1,
+                "process_message": "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度74℃（异常）；整流模块无告警（正常），电池无异常放电（正常）。"
             }
         ]
     },
@@ -85,12 +109,16 @@
             {
                 "id": 1,
                 "conclusion": "市电电力故障",
-                "solution": "FA00005"
+                "solution": "FA00005",
+                "process_id": 1,
+                "process_message": "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度74℃（异常）；整流模块无告警（正常），电池无异常放电（正常）。"
             },
             {
                 "id": 2,
                 "conclusion": "整流模块故障",
-                "solution": "FA00006"
+                "solution": "FA00006",
+                "process_id": 1,
+                "process_message": "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度74℃（异常）；整流模块无告警（正常），电池无异常放电（正常）。"
             }
         ]
     },
@@ -100,12 +128,16 @@
             {
                 "id": 1,
                 "conclusion": "传输光缆故障-PTN",
-                "solution": "FA00013"
+                "solution": "FA00013",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。"
             },
             {
                 "id": 2,
                 "conclusion": "传输光缆故障-SPN",
-                "solution": "FA00013"
+                "solution": "FA00013",
+                "process_id": 2,
+                "process_message": "PTN/SPN设备脱管(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。"
             }
         ]
     },
@@ -115,17 +147,21 @@
             {
                 "id": 1,
                 "conclusion": "传输光缆故障",
-                "solution": "FA00013"
+                "solution": "FA00013",
+                "process_id": 2,
+                "process_message": "传输光缆故障(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。"
             }
         ]
     },
-        {
+    {
         "key": "DT00083",
         "contents": [
             {
                 "id": 1,
                 "conclusion": "传输光缆故障",
-                "solution": "FA00013"
+                "solution": "FA00013",
+                "process_id": 2,
+                "process_message": "传输光缆故障(异常)、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。"
             }
         ]
     }
