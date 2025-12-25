@@ -28,9 +28,9 @@ path_rule_json = project_root / "files" / "rules" / "rules.json"
 path_mock_json = project_root / "files" / "data" / "mml_str.json"
 
 process_info = [
-    "交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（正常）。",
-    "PTN/SPN设备无脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。",
-    "GJ00011的ENodeB设备，BBU配置型号为Baseband 6648，存在温度正常；BBU由铁塔直流供电，供电电压54V（正常）。",
+    "Y-交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（正常）。",
+    "Y-PTN/SPN设备无脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。",
+    "Y-GJ00011的ENodeB设备，BBU配置型号为Baseband 6648，温度正常；BBU由铁塔直流供电，供电电压54V（正常）。",
 ]
 
 
@@ -290,7 +290,10 @@ def digonisis(
         inference.descriptions = replace_text_codes(work_order, rule.descriptions)
         inference.curr_rules = replace_rules(work_order, rule.curr_rules)
         if content.process_id > 0:
-            local_process_info[content.process_id - 1] = content.process_message
+            msg = content.process_message
+            if msg.startswith("N-"):
+                msg = msg[2:]
+            local_process_info[content.process_id - 1] = "N-" + msg
             local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
             inference.processes = local_process_info
         result.append(inference)
