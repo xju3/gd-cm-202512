@@ -27,10 +27,13 @@ pattern = r"(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])"
 path_rule_json = project_root / "files" / "rules" / "rules.json"
 path_mock_json = project_root / "files" / "data" / "mml_str.json"
 path_rule_type_json = project_root / "files" / "rules" / "rules_type.json"
+# 预设的工单表
+path_work_orders_json = project_root / "files" / "data" / "work_orders.json"
 
 _rule_type_json_cache = None
 _rule_json_cache = None
 _mock_json_cache = None
+_work_orders_json_cache = None
 
 def _get_rule_json():
     global _rule_json_cache
@@ -52,6 +55,43 @@ def _get_rule_type_json():
         with open(path_rule_type_json, "r", encoding="utf-8") as f:
             _rule_type_json_cache = json.load(f)
     return _rule_type_json_cache
+
+def _get_work_orders_json():
+    global _work_orders_json_cache
+    if _work_orders_json_cache is None:
+        with open(path_work_orders_json, "r", encoding="utf-8") as f:
+            _work_orders_json_cache = json.load(f)
+    return _work_orders_json_cache
+
+def get_work_order_json(work_order_id: str):
+    """
+    根据工单 ID 获取工单的详细 JSON 数据。
+    兼容 JSON 数据为列表或字典的情况。
+    """
+    work_orders_json = _get_work_orders_json()
+    
+    # 如果是列表，遍历查找
+    if isinstance(work_orders_json, list):
+        for item in work_orders_json:
+            # 数据文件中字段可能是 worker_order_id
+            if item.get("worker_order_id") == work_order_id or item.get("work_order_id") == work_order_id:
+                return item
+        return None
+        
+    # 如果是字典，直接获取
+    if isinstance(work_orders_json, dict):
+        return work_orders_json.get(work_order_id, None)
+        
+    return None
+
+def get_work_order_information(work_order_id: str) -> Dict[str, Any] | None:
+    """
+    根据工单 ID 获取工单的 information 字段内容。
+    """
+    data = get_work_order_json(work_order_id)
+    if data:
+        return data.get("information")
+    return None
 
 process_info = [
     "Y-交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（无放电），门禁状态（无告警）。",
@@ -287,6 +327,17 @@ def digonisis(
 
     result: List[Inference] = []
 
+    # 获取工单ID
+    work_order_id = work_order.work_order_id
+    #在work_orders.json中检查是否存在该工单
+    work_order_json = get_work_order_json(work_order_id)
+    if work_order_json:
+        item_process_info = work_order_json["diagnosis"]["process_message"]
+        item_solution_code = work_order_json["diagnosis"]["solution"]
+        item_conclusion = work_order_json["diagnosis"]["conclusion"]
+        # 影响范围
+        item_fault_impact_range = work_order_json["diagnosis"]["fault_impact_range"]
+
     for rule_name in rule_names:
         rule_contents: List[RuleContent] = []
         for item in settings.diagnosis_rule_list:
@@ -318,6 +369,7 @@ def digonisis(
                 curr_rules=[],
                 name="",
                 processes=[],
+                fault_impact_range="",
             )
 
             status = 0
@@ -331,20 +383,37 @@ def digonisis(
             else:
                 content = mock_string_value(mock.name, int(round(status)), work_order)
 
-            inference.conclusion = content.conclusion
+            if item_conclusion:
+                inference.conclusion = item_conclusion
+            else:
+                inference.conclusion = content.conclusion
+
             inference.name = mock.name
-            norm_code = normalize_solution_code(content.solution)
+            if item_solution_code:
+                norm_code = normalize_solution_code(item_solution_code)
+            else:
+                norm_code = normalize_solution_code(content.solution)
+
             inference.solution_code = norm_code
             inference.solution_content = get_solution(norm_code)
+            # 影响范围
+            if item_fault_impact_range:
+                inference.fault_impact_range = item_fault_impact_range
+
             inference.descriptions = replace_text_codes(work_order, rule.descriptions)
             inference.curr_rules = replace_rules(work_order, rule.curr_rules)
-            if content.process_id > 0:
-                msg = content.process_message
-                if msg.startswith("N-"):
-                    msg = msg[2:]
-                local_process_info[content.process_id - 1] = "N-" + msg
-                local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
-                inference.processes = local_process_info
+
+            if item_process_info:
+                inference.processes = item_process_info
+            else:
+                if content.process_id > 0:
+                    msg = content.process_message
+                    if msg.startswith("N-"):
+                        msg = msg[2:]
+                    local_process_info[content.process_id - 1] = "N-" + msg
+                    local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
+                    inference.processes = local_process_info
+
             result.append(inference)
             
     return result

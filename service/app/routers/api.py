@@ -2,7 +2,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import select
-from typing import List
+from typing import List, Dict, Any
 import math
 
 from ..database import get_db, SessionLocal
@@ -150,6 +150,24 @@ def get_work_order(
 
     # 4. 返回符合 PaginatedResponse 结构的数据
     return item
+
+
+@router.get("/information", response_model=Dict[str, Any], description="获取工单 information 字段")
+def get_work_order_information(
+    work_order_id: str = Query(..., description="工单号"),
+) -> Dict[str, Any]:
+    """
+    获取工单 information 字段
+    
+    :param work_order_id: 工单号
+    :type work_order_id: str
+    :return: information 字段内容
+    :rtype: Dict[str, Any]
+    """
+    info = data_service.get_work_order_information(work_order_id)
+    if info is None:
+        raise HTTPException(status_code=404, detail="未找到该工单信息")
+    return info
 
 def run_pre_diagnosis_task(batch_size: int):
     """

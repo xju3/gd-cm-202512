@@ -92,7 +92,11 @@ class Inference(BaseModel):
         ..., 
         description="推断过程", 
     ),
-
+    fault_impact_range: str = Field(
+        ..., 
+        description="影响范围", 
+    )
+    
 class WorkOrderDTO(BaseModel):
     """单条工单数据 (保持不变)"""
     work_order_id: str = Field(
