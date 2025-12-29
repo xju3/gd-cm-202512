@@ -26,11 +26,37 @@ pattern = r"(?<![A-Z0-9])(?:GJ|JT)\d{5}(?![A-Z0-9])"
 
 path_rule_json = project_root / "files" / "rules" / "rules.json"
 path_mock_json = project_root / "files" / "data" / "mml_str.json"
+path_rule_type_json = project_root / "files" / "rules" / "rules_type.json"
+
+_rule_type_json_cache = None
+_rule_json_cache = None
+_mock_json_cache = None
+
+def _get_rule_json():
+    global _rule_json_cache
+    if _rule_json_cache is None:
+        with open(path_rule_json, "r", encoding="utf-8") as f:
+            _rule_json_cache = json.load(f)
+    return _rule_json_cache
+
+def _get_mock_json():
+    global _mock_json_cache
+    if _mock_json_cache is None:
+        with open(path_mock_json, "r", encoding="utf-8") as f:
+            _mock_json_cache = json.load(f)
+    return _mock_json_cache
+
+def _get_rule_type_json():
+    global _rule_type_json_cache
+    if _rule_type_json_cache is None:
+        with open(path_rule_type_json, "r", encoding="utf-8") as f:
+            _rule_type_json_cache = json.load(f)
+    return _rule_type_json_cache
 
 process_info = [
-    "Y-交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（正常）。",
-    "Y-PTN/SPN设备无脱管、离线类告警（正常）；组环收发光（正常），BBU传输模块收发光（正常）。",
-    "Y-GJ00011的ENodeB设备，BBU配置型号为Baseband 6648，温度正常；BBU由铁塔直流供电，供电电压54V（正常）。",
+    "Y-交流供电输入端电压223V（正常），直流输出电压54V（正常），机房温度26℃（正常）；整流模块无告警（正常），电池无异常放电（无放电），门禁状态（无告警）。",
+    "Y-2252-GJ00010-SPN6190H-CRAN（正常），传输设备侧BBU传输光口 2252-GJ00010-SPN6190H-CRAN xgei_3/4：TXdBm:-3.2;RXdBm:-28。（正常）",
+    "Y-BBU设备侧传输光口 TXdBm:-25.54;RXdBm:-27.4（正常）。基带板侧光口 TXdBm:-2.8;RXdBm:-8.73 TXdBm:-2.99;RXdBm:-2.18 TXdBm:-2.5;RXdBm:-5.61（正常），RRU1光口1：TXdBm:NA;RXdBm:-10.42 RRU2光口1：TXdBm:2.5;RXdBm:-7.43 RRU3光口2：TXdBm:3.01;RXdBm:-2.06（正常），故障小区：GJ00010 ",
 ]
 
 
@@ -54,11 +80,7 @@ def exec(work_order_id: str, db: Session) -> List[Inference]:
         item.evidence = norm["evidence"]
         db.commit()
 
-    rule_name = None
-    if "小区" in item.GJ00008:
-        rule_name = "TF-002"
-    if "基站" in item.GJ00008:
-        rule_name = "TF-001"
+    rule_names = get_rule_index(item)
 
     # 调用 digonisis，传入工单中的 rule_index 和 err_index
     try:
@@ -66,7 +88,7 @@ def exec(work_order_id: str, db: Session) -> List[Inference]:
     except (ValueError, TypeError):
         err_index_float = 1.0
     rule_index_int = item.rule_index if item.rule_index else 1
-    return digonisis(item, rule_index_int, err_index_float, rule_name)
+    return digonisis(item, rule_index_int, err_index_float, rule_names)
 
 
 def get_deepseek_api_key() -> str | None:
@@ -121,16 +143,35 @@ def normalize_inference_result(result: Dict[str, Any]) -> Dict[str, Any]:
         "evidence": evidence,
     }
 
+# 获取故障主故障算法编号
+def get_rule_index(work_order: WorkOrder) -> List[str]:
+    """
+    根据输入的工单分析工单对应的故障主故障算法编号（TF-001/TF-002/ZB-001/DL-001/DL-002）
+    """
+    # 基于 rules_type.json 中的 match 字段判断
+    rule_json = _get_rule_type_json()
+    matched_rules = []
+    for rule in rule_json:
+        if any(keyword in work_order.GJ00008 for keyword in rule["match"]):
+            matched_rules.append(rule["id"])
+    
+    if matched_rules:
+        return matched_rules
+        
+    return ["TF-001"]
+
+
 
 def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
     """
     使用 AI 推理工单，返回 rule_index, error_index, probability, evidence。
     """
     # 加载规则和 mock 数据
-    with open(path_rule_json, "r", encoding="utf-8") as f:
-        rule_json = json.load(f)
-    with open(path_mock_json, "r", encoding="utf-8") as f:
-        mock_json = json.load(f)
+    rule_json = _get_rule_json()
+    mock_json = _get_mock_json()
+    rule_type_json = get_rule_index(work_order)
+    
+    rule_main = rule_type_json[0]
 
     # 构建工单 JSON
     work_order_dict = {
@@ -161,7 +202,8 @@ def ai_diagnosis(work_order: WorkOrder) -> Dict[str, Any]:
 
     # 构建提示词（根据用户描述）
     prompt = f"""
-你是通讯行业4G,5G设备故障分析专家, 深刻了解此行业的设备所生的故障与原因, 请分析work_order.json的内容, 在规则列表(rules_json)中找到的最有可能发生的故障节点, 再根据例命中的节点, 找到对应的mock数据, 根据mock.name在mock数据(mml_str_json)中找到与工单(work_order.json)所对应有的内容编号, 注意,如果工单(work_order.json)的GJ00008=小区退服, 在rule_json中的name=TF-002中进行匹配, 如果工单(work_order.json)的GJ00008=基站退服, 在rule_json中的name=TF-001中进行匹配, 返回 {{"rule_index": number, error_index: number, probability: percentage, evidence: ""}},  rule_index取相应rule的Id, error_index取相应内容的Id, probability是你推理结果的可能性, evidence是的推理出结果所使用的依据, 如果不能推导出结果, 或Probabiliy低于50%, 则在定义的规则范围内随机取一个规则后, 再根据mock.name在Mock数据中随机取一个值,在随机状态与Probabiliy还是要提供给我们, evidence可以不提供
+你是通讯行业4G,5G设备故障分析专家, 深刻了解此行业的设备所生的故障与原因, 请分析work_order.json的内容, 在规则列表(rules_json)中找到的最有可能发生的故障节点, 再根据例命中的节点, 找到对应的mock数据, 根据mock.name在mock数据(mml_str_json)中找到与工单(work_order.json)所对应有的内容编号, \n
+注意,根据rule_json中{rule_main}进行匹配, 返回 {{"rule_index": number, error_index: number, probability: percentage, evidence: ""}},  rule_index取相应rule的Id, error_index取相应内容的Id, probability是你推理结果的可能性, evidence是的推理出结果所使用的依据, 如果不能推导出结果, 或Probabiliy低于50%, 则在定义的规则范围内随机取一个规则后, 再根据mock.name在Mock数据中随机取一个值,在随机状态与Probabiliy还是要提供给我们, evidence可以不提供
 
 work_order.json:
 {json.dumps(work_order_dict, ensure_ascii=False, indent=2)}
@@ -214,13 +256,14 @@ def pre_diagnosis(db: Session, batch_size: int = 100):
     """
     skip = 0
     while True:
-        total, items = get_work_orders(db, skip=skip, limit=batch_size, keyword="")
+        total, items = get_work_orders(db, skip=skip, limit=batch_size, keyword="退服")
         if not items:
             break
         for work_order in items:
             # 如果工单已有推理结果，可以跳过
             if work_order.rule_index is not None and work_order.err_index is not None:
                 continue
+            # log.info(f"处理工单 {work_order.work_order_id}")
             # 调用 AI 推理
             result = ai_diagnosis(work_order)
             # 更新工单字段（归一化，确保整数类型）
@@ -236,67 +279,74 @@ def pre_diagnosis(db: Session, batch_size: int = 100):
 
 
 def digonisis(
-    work_order: WorkOrder, rule_index, err_index: float, rule_name
+    work_order: WorkOrder, rule_index, err_index: float, rule_names: List[str]
 ) -> List[Inference]:
 
-    if rule_name is None:
+    if not rule_names:
         return []
 
     result: List[Inference] = []
-    rule_contents: List[RuleContent] = []
-    for item in settings.diagnosis_rule_list:
-        if item.name == rule_name:
-            rule_contents = item.rules
-            break
 
-    if rule_index < 1:
-        rule_index = 1
+    for rule_name in rule_names:
+        rule_contents: List[RuleContent] = []
+        for item in settings.diagnosis_rule_list:
+            if item.name == rule_name:
+                rule_contents = item.rules
+                break
 
-    if rule_index > len(rule_contents):
-        rule_index = len(rule_contents)
+        if not rule_contents:
+            continue
 
-    local_process_info = copy.deepcopy(process_info)
-    
-    for rule in rule_contents:
-        if rule.id > rule_index:
-            break
-        inference = Inference(
-            descriptions="",
-            conclusion="",
-            solution_code="",
-            solution_content="",
-            error="",
-            curr_rules=[],
-            name="",
-            processes=[],
-        )
+        current_rule_index = rule_index
+        if current_rule_index < 1:
+            current_rule_index = 1
 
-        status = 0
-        if rule.id == rule_index:
-            status = err_index
+        if current_rule_index > len(rule_contents):
+            current_rule_index = len(rule_contents)
 
-        mock = rule.mock
-        content = None
-        if mock.type == "num":
-            content = mock_numerical_value(mock.name, float(status), work_order)
-        else:
-            content = mock_string_value(mock.name, int(round(status)), work_order)
+        local_process_info = copy.deepcopy(process_info)
+        
+        for rule in rule_contents:
+            if rule.id > current_rule_index:
+                break
+            inference = Inference(
+                descriptions="",
+                conclusion="",
+                solution_code="",
+                solution_content="",
+                error="",
+                curr_rules=[],
+                name="",
+                processes=[],
+            )
 
-        inference.conclusion = content.conclusion
-        inference.name = mock.name
-        norm_code = normalize_solution_code(content.solution)
-        inference.solution_code = norm_code
-        inference.solution_content = get_solution(norm_code)
-        inference.descriptions = replace_text_codes(work_order, rule.descriptions)
-        inference.curr_rules = replace_rules(work_order, rule.curr_rules)
-        if content.process_id > 0:
-            msg = content.process_message
-            if msg.startswith("N-"):
-                msg = msg[2:]
-            local_process_info[content.process_id - 1] = "N-" + msg
-            local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
-            inference.processes = local_process_info
-        result.append(inference)
+            status = 0
+            if rule.id == current_rule_index:
+                status = err_index
+
+            mock = rule.mock
+            content = None
+            if mock.type == "num":
+                content = mock_numerical_value(mock.name, float(status), work_order)
+            else:
+                content = mock_string_value(mock.name, int(round(status)), work_order)
+
+            inference.conclusion = content.conclusion
+            inference.name = mock.name
+            norm_code = normalize_solution_code(content.solution)
+            inference.solution_code = norm_code
+            inference.solution_content = get_solution(norm_code)
+            inference.descriptions = replace_text_codes(work_order, rule.descriptions)
+            inference.curr_rules = replace_rules(work_order, rule.curr_rules)
+            if content.process_id > 0:
+                msg = content.process_message
+                if msg.startswith("N-"):
+                    msg = msg[2:]
+                local_process_info[content.process_id - 1] = "N-" + msg
+                local_process_info[2] = replace_text_codes(work_order, local_process_info[2])
+                inference.processes = local_process_info
+            result.append(inference)
+            
     return result
 
 

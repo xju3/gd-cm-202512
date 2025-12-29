@@ -20,3 +20,4 @@ service/.env.test
 
 # docker-compose
 docker-compose/data
+docker-compose/dump-ci_agent-*

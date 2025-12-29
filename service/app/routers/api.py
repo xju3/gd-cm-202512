@@ -1,11 +1,11 @@
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import List
 import math
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..services import data_service
 from ..schemas import PaginatedResponse, InferenceResponse, WorkOrderDTO
 from ..models import WorkOrder
@@ -151,14 +151,27 @@ def get_work_order(
     # 4. 返回符合 PaginatedResponse 结构的数据
     return item
 
+def run_pre_diagnosis_task(batch_size: int):
+    """
+    后台任务：执行预诊断
+    """
+    db = SessionLocal()
+    try:
+        data_service.pre_diagnosis(db, batch_size=batch_size)
+    finally:
+        db.close()
+
 @router.api_route("/pre-diagnosis", methods=["GET", "POST"], response_model=dict, description="批量预诊断工单")
 def trigger_pre_diagnosis(
+    background_tasks: BackgroundTasks,
     batch_size: int = Query(default=100, ge=1, le=1000, description="每批处理数量"),
     db: Session = Depends(get_db),
 ) -> dict:
     """
     触发批量预诊断，使用 AI 推理工单并更新数据库。
     
+    :param background_tasks: 后台任务管理器
+    :type background_tasks: BackgroundTasks
     :param batch_size: 每批处理数量
     :type batch_size: int
     :param db: 数据库连接
@@ -168,7 +181,8 @@ def trigger_pre_diagnosis(
     """
     try:
         ensure_work_order_extra_columns()
-        data_service.pre_diagnosis(db, batch_size=batch_size)
-        return {"success": True, "message": "预诊断完成"}
+        # 使用后台任务执行，避免阻塞 API
+        background_tasks.add_task(run_pre_diagnosis_task, batch_size=batch_size)
+        return {"success": True, "message": "预诊断任务已在后台启动"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"预诊断失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"预诊断启动失败: {str(e)}")
