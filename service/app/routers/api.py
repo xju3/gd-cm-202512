@@ -13,6 +13,8 @@ from ..config import settings
 from ..migrations import ensure_work_order_extra_columns
 from ..utils.file_utils import read_text_file_safe
 from starlette.responses import PlainTextResponse
+from langchain_deepseek import ChatDeepSeek
+from langchain_core.messages import HumanMessage, SystemMessage
 # 获取当前文件的绝对路径
 current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
@@ -204,3 +206,68 @@ def trigger_pre_diagnosis(
         return {"success": True, "message": "预诊断任务已在后台启动"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"预诊断启动失败: {str(e)}")
+
+@router.api_route("/qa", methods=["GET", "POST"], response_model=dict, description="DeepSeek 运维问答")
+def operations_qa(
+    question: str = Query(..., description="问题描述"),
+    work_order_id: str | None = Query(default=None, description="可选工单号，用于提供上下文"),
+    concise: bool = Query(default=True, description="是否简洁输出（最多6条要点，单条≤120字）"),
+    max_tokens: int = Query(default=800, ge=100, le=4000, description="最大生成 tokens"),
+    char_limit: int | None = Query(default=2000, description="字符上限，超出将裁剪"),
+) -> dict:
+    """
+    接入 DeepSeek，实现专业运维工程师问答。
+    可选地根据工单号注入 work_order.json 的 information 上下文，提高回答准确性。
+    支持控制输出简洁性与最大生成长度。
+    
+    :param question: 问题描述
+    :type question: str
+    :param work_order_id: 可选工单号
+    :type work_order_id: str | None
+    :param concise: 是否简洁输出
+    :type concise: bool
+    :param max_tokens: 最大生成 tokens
+    :type max_tokens: int
+    :param char_limit: 字符上限，超出将裁剪
+    :type char_limit: int | None
+    :return: 问答结果
+    :rtype: dict
+    """
+    api_key = settings.get_deepseek_api_key()
+    if not api_key:
+        raise HTTPException(status_code=500, detail="DeepSeek API Key 未配置")
+    context_info = None
+    if work_order_id:
+        context_info = data_service.get_work_order_information(work_order_id)
+    system_prompt = (
+        "你是一名资深的通信运维工程师，熟悉4G/5G无线设备、传输设备、供电系统、天馈系统及告警处理流程。"
+        "请用专业但可执行的步骤提供解决方案，包含：故障定位思路、关键排查项、可能原因、处置步骤、风险与回滚建议。"
+        "若需要到站操作或跨专业配合，请明确说明。"
+    )
+    user_prompt = f"问题：{question}"
+    if context_info:
+        user_prompt += f"\n\n工单上下文（information）：\n{context_info}"
+    if concise:
+        user_prompt += (
+            "\n\n输出要求："
+            "以最多6条要点返回，每条不超过120字；"
+            "优先给出可执行步骤与关键参数；"
+            "如需命令或脚本，给出简洁版本；"
+            "无需额外客套或背景描述。"
+        )
+    llm = ChatDeepSeek(
+        model="deepseek-chat",
+        api_key=api_key,
+        temperature=0,
+        max_tokens=max_tokens,
+        timeout=None,
+        max_retries=2,
+    )
+    try:
+        resp = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
+        answer = resp.content.strip()
+        if isinstance(char_limit, int) and char_limit > 0 and len(answer) > char_limit:
+            answer = answer[:char_limit].rstrip() + "..."
+        return {"success": True, "error": "", "answer": answer}
+    except Exception as e:
+        return {"success": False, "error": str(e), "answer": ""}

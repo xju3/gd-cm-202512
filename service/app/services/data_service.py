@@ -74,7 +74,7 @@ def get_work_order_json(work_order_id: str):
     if isinstance(work_orders_json, list):
         for item in work_orders_json:
             # 数据文件中字段可能是 worker_order_id
-            if item.get("worker_order_id") == work_order_id or item.get("work_order_id") == work_order_id:
+            if item.get("worker_order_id") == work_order_id:
                 return item
         return None
         
