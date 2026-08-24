@@ -5,7 +5,9 @@ build/
 dist/
 wheels/
 *.egg-info
-
+front/node_modules
+front/dist
+front/dist/
 # Virtual environments
 service/.venv
 service/allure-results
