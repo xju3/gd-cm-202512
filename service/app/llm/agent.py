@@ -30,7 +30,8 @@ def get_agent(tools: list):
     # )
 
     llm = ChatDeepSeek(
-        model="deepseek-chat",
+        #model="deepseek-chat",
+        model="deepseek-v4-flash",
         api_key=os.environ.get("DEEPSEEK_API_KEY_CUI"),
         temperature=0,
         max_tokens=None,
