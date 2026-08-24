@@ -1,5 +1,5 @@
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks, Header
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import List, Dict, Any
@@ -7,10 +7,20 @@ import math
 
 from ..database import get_db, SessionLocal
 from ..services import data_service
+from ..services import admin_service
 from ..schemas import PaginatedResponse, InferenceResponse, WorkOrderDTO
 from ..models import WorkOrder
 from ..config import settings
 from ..migrations import ensure_work_order_extra_columns
+from ..schemas_admin import (
+    AdminLoginRequest,
+    AdminLoginResponse,
+    KnowledgeBaseListResponse,
+    KnowledgeBaseOverviewResponse,
+    KnowledgeBasePayload,
+    KnowledgeBaseRecord,
+    KnowledgeBaseType,
+)
 from ..utils.file_utils import read_text_file_safe
 from starlette.responses import PlainTextResponse
 from langchain_deepseek import ChatDeepSeek
@@ -20,6 +30,17 @@ current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
 
 router = APIRouter(prefix="/api/v1")
+
+
+def require_admin(authorization: str = Header(default="", alias="Authorization")) -> str:
+    """
+    校验管理员访问令牌，未通过时抛出 401。
+    """
+
+    token = authorization.replace("Bearer ", "").strip()
+    if not admin_service.verify_token(token):
+        raise HTTPException(status_code=401, detail="管理员认证失败")
+    return token
 
 @router.get("/health", response_model=dict, description="检查服务健康状态")
 def health() -> dict:
@@ -46,6 +67,90 @@ def solution(code: str = Query(description="解决方案代码", default="FA0000
         raise HTTPException(status_code=404, detail="解决方案文件未找到")
     content = read_text_file_safe(file_path)
     return PlainTextResponse(content=content, media_type="text/markdown; charset=utf-8")
+
+
+@router.post("/admin/login", response_model=AdminLoginResponse, description="管理员登录")
+def admin_login(payload: AdminLoginRequest) -> AdminLoginResponse:
+    """
+    校验固定管理员账号并返回访问令牌。
+    """
+
+    if not admin_service.verify_admin(payload.username, payload.password):
+        raise HTTPException(status_code=401, detail="账号或密码错误")
+    admin_service.ensure_knowledge_base_data()
+    return AdminLoginResponse(
+        success=True,
+        token=admin_service.ADMIN_TOKEN,
+        username=payload.username,
+    )
+
+
+@router.get(
+    "/admin/overview",
+    response_model=KnowledgeBaseOverviewResponse,
+    description="获取后台知识库概览",
+)
+def admin_overview(_: str = Depends(require_admin)) -> Dict[str, Any]:
+    """
+    获取三类知识库的数量概览。
+    """
+
+    return admin_service.get_overview()
+
+
+@router.get(
+    "/admin/knowledge-bases/{kb_type}",
+    response_model=KnowledgeBaseListResponse,
+    description="获取指定知识库列表",
+)
+def get_knowledge_base(
+    kb_type: KnowledgeBaseType,
+    keyword: str = Query(default="", description="知识库关键字搜索"),
+    _: str = Depends(require_admin),
+) -> Dict[str, Any]:
+    """
+    获取指定类型的知识库列表。
+    """
+
+    return admin_service.list_records(kb_type, keyword)
+
+
+@router.post(
+    "/admin/knowledge-bases/{kb_type}",
+    response_model=KnowledgeBaseRecord,
+    description="新增知识库记录",
+)
+def create_knowledge_base_record(
+    kb_type: KnowledgeBaseType,
+    payload: KnowledgeBasePayload,
+    _: str = Depends(require_admin),
+) -> Dict[str, Any]:
+    """
+    新增一条知识库记录。
+    """
+
+    return admin_service.create_record(kb_type, payload)
+
+
+@router.put(
+    "/admin/knowledge-bases/{kb_type}/{record_id}",
+    response_model=KnowledgeBaseRecord,
+    description="更新知识库记录",
+)
+def update_knowledge_base_record(
+    kb_type: KnowledgeBaseType,
+    record_id: str,
+    payload: KnowledgeBasePayload,
+    _: str = Depends(require_admin),
+) -> Dict[str, Any]:
+    """
+    更新指定知识库记录。
+    """
+
+    record = admin_service.update_record(kb_type, record_id, payload)
+    if record is None:
+        raise HTTPException(status_code=404, detail="知识库记录不存在")
+    return record
 
 @router.api_route("/diagnosis", methods=["GET", "POST"], response_model=InferenceResponse, description="执行故障诊断")
 def diagnosis(

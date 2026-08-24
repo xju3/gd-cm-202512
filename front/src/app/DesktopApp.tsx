@@ -41,6 +41,13 @@ export default function DesktopApp() {
   }, []);
 
   /**
+   * 跳转到后台管理页面。
+   */
+  const handleGoToAdmin = () => {
+    window.location.hash = '#/admin';
+  };
+
+  /**
    * 处理工单点击事件
    * 显示"智能诊断中..."提示，延时0.5秒后显示详情
    */
@@ -103,6 +110,13 @@ export default function DesktopApp() {
               {/* 设置按钮 */}
               <Button variant="ghost" size="icon" className="text-green-600 hover:text-green-700 hover:bg-green-50">
                 <Settings className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden border-green-200 text-green-700 hover:bg-green-50 lg:inline-flex"
+                onClick={handleGoToAdmin}
+              >
+                后台管理
               </Button>
               {/* 音量按钮 */}
               <Button variant="ghost" size="icon" className="text-green-600 hover:text-green-700 hover:bg-green-50 hidden sm:flex">

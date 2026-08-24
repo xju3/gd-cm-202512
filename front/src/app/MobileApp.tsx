@@ -103,6 +103,13 @@ export default function MobileApp() {
     }
   };
 
+  /**
+   * 跳转到后台管理页面。
+   */
+  const handleGoToAdmin = () => {
+    window.location.hash = '#/admin';
+  };
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
@@ -243,6 +250,13 @@ export default function MobileApp() {
                 <span className="text-xs font-medium text-green-700">工程师李明</span>
               </div>
               <div className="flex items-center gap-3 pr-1">
+                <button
+                  type="button"
+                  className="rounded-full border border-green-200 px-2 py-1 text-[10px] font-medium text-green-700"
+                  onClick={handleGoToAdmin}
+                >
+                  后台
+                </button>
                 <Settings className="w-4 h-4 text-green-600/80 hover:text-green-700 cursor-pointer" />
                 <Volume2 className="w-4 h-4 text-green-600/80 hover:text-green-700 cursor-pointer" />
                 <Bell className="w-4 h-4 text-green-600/80 hover:text-green-700 cursor-pointer" />
