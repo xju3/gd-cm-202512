@@ -29,8 +29,7 @@ KB_LABELS: Dict[KnowledgeBaseType, str] = {
 }
 
 SOURCE_SUMMARY = (
-    "已基于现有 rules.json、rules_type.json、mml_str.json、work_orders.json 与 "
-    "solutions/*.md 自动初始化，可在后台继续录入与维护。"
+    " "
 )
 
 

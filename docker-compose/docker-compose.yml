@@ -69,8 +69,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "7190:7190"
-    env_file:
-      - ../.env
     environment:
       DATABASE_VENDOR: "postgres"
       POSTGRES_URL: "postgresql+psycopg://postgres:postgres@postgres:5432/ci_agent"
